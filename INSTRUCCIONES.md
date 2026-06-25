@@ -3,6 +3,12 @@
 App de administración financiera para vos y tu pareja. Moneda: Guaraníes (₲).
 Diseño: bandera de Costa Rica en modo oscuro.
 
+## 🔗 La app está EN LÍNEA acá:
+### **https://finanzas-app-favila-code.vercel.app**
+
+Abrila desde la compu o el celular (podés "Agregar a pantalla de inicio" en el iPhone
+para que funcione como una app). Cada cambio que subamos al código se actualiza solo.
+
 ---
 
 ## 1. Primer ingreso (vos y tu esposa)

@@ -2,6 +2,9 @@
 
 App de administración financiera personal y familiar, en **Guaraníes (₲)**, con diseño basado en la bandera de Costa Rica en modo oscuro.
 
+**En vivo:** https://finanzas-app-favila-code.vercel.app
+**Repo:** github.com/favilacode-spec/finanzas-app · **Backend:** Supabase `finanzas-app`
+
 ## Funciones
 - 👥 **Hogar compartido**: vos y tu pareja, cada uno con su usuario, viendo las mismas finanzas (código de invitación).
 - 🏦 **Múltiples cuentas**: agregá cada banco/billetera por separado (efectivo, corriente, ahorros, tarjeta, inversión, préstamo). Vista total y por cuenta.

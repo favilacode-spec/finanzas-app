@@ -12,8 +12,14 @@ export function AuthProvider({ children }) {
 
   const loadProfile = useCallback(async (uid) => {
     if (!uid) { setProfile(null); setHousehold(null); return }
-    const { data: prof } = await supabase
+    const { data: prof, error } = await supabase
       .from('profiles').select('*').eq('id', uid).maybeSingle()
+    // Sesión obsoleta: hay token pero el usuario ya no existe en la BD → cerrar sesión
+    if (!error && !prof) {
+      await supabase.auth.signOut()
+      setProfile(null); setHousehold(null)
+      return
+    }
     setProfile(prof || null)
     if (prof?.active_household_id) {
       const { data: hh } = await supabase

@@ -53,13 +53,8 @@ export default function Layout() {
       <div className={`sidebar-backdrop ${open ? 'show' : ''}`} onClick={() => setOpen(false)} />
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">
-            <svg viewBox="0 0 100 100" width="38" height="38">
-              <rect width="100" height="100" fill="#0b3b8f" />
-              <rect y="33" width="100" height="13" fill="#fff" />
-              <rect y="46" width="100" height="18" fill="#d4202a" />
-              <rect y="64" width="100" height="13" fill="#fff" />
-            </svg>
+          <div className="brand-mark" style={{ background: 'linear-gradient(135deg, var(--blue) 0%, var(--blue-deep) 45%, var(--red) 100%)', display: 'grid', placeItems: 'center' }}>
+            <Wallet size={20} color="#fff" strokeWidth={2.4} />
           </div>
           <div>
             <div className="brand-name">Mi Billetera</div>

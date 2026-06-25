@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Wallet } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -38,13 +39,8 @@ export default function Login() {
     <div className="center-screen" style={{ padding: 18 }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
-          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: 18, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
-            <svg viewBox="0 0 100 100" width="64" height="64">
-              <rect width="100" height="100" fill="#0b3b8f" />
-              <rect y="33" width="100" height="13" fill="#fff" />
-              <rect y="46" width="100" height="18" fill="#d4202a" />
-              <rect y="64" width="100" height="13" fill="#fff" />
-            </svg>
+          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: 18, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, var(--blue) 0%, var(--blue-deep) 45%, var(--red) 100%)', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+            <Wallet size={32} color="#fff" strokeWidth={2.2} />
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800 }}>Mi Billetera CR</h1>
           <p className="text-2" style={{ marginTop: 6 }}>Tu administración financiera, en familia.</p>

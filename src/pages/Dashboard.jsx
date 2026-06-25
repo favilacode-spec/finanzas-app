@@ -20,23 +20,28 @@ export default function Dashboard() {
   const [trend, setTrend] = useState([])
 
   const load = async () => {
-    if (!household) return
+    if (!household) { setLoading(false); return }
     setLoading(true)
-    const { start } = monthRange()
-    const [acc, bal, tx, cat, allTx] = await Promise.all([
-      supabase.from('accounts').select('*').eq('archived', false),
-      supabase.from('account_balances').select('*'),
-      supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on', { ascending: false }),
-      supabase.from('categories').select('id,name,color,icon'),
-      supabase.from('transactions').select('amount,type,occurred_on').gte('occurred_on', sixMonthsAgo()),
-    ])
-    setAccounts(acc.data || [])
-    setBalances(bal.data || [])
-    setTxns(tx.data || [])
-    const cmap = {}; (cat.data || []).forEach((c) => { cmap[c.id] = c })
-    setCats(cmap)
-    setTrend(buildTrend(allTx.data || []))
-    setLoading(false)
+    try {
+      const { start } = monthRange()
+      const [acc, bal, tx, cat, allTx] = await Promise.all([
+        supabase.from('accounts').select('*').eq('archived', false),
+        supabase.from('account_balances').select('*'),
+        supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on', { ascending: false }),
+        supabase.from('categories').select('id,name,color,icon'),
+        supabase.from('transactions').select('amount,type,occurred_on').gte('occurred_on', sixMonthsAgo()),
+      ])
+      setAccounts(acc.data || [])
+      setBalances(bal.data || [])
+      setTxns(tx.data || [])
+      const cmap = {}; (cat.data || []).forEach((c) => { cmap[c.id] = c })
+      setCats(cmap)
+      setTrend(buildTrend(allTx.data || []))
+    } catch (e) {
+      console.error('Error cargando el resumen:', e)
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => { load() }, [household])
 

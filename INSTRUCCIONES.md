@@ -48,15 +48,34 @@ Cada vez que pagás con Apple Pay, el gasto entra solo a la **Bandeja** de la ap
    - **URL:** `https://yvivibcczpirjzipuiqb.supabase.co/functions/v1/apple-pay-ingest`
    - Tocá **Mostrar más** → **Método:** `POST`
    - **Cuerpo de la solicitud:** `JSON`
-   - Agregá estos campos:
+   - Agregá **dos campos** (botón "Añadir campo"):
      - `token` (Texto) → pegá tu token (lo ves en **Ajustes → Apple Pay** dentro de la app)
-     - `amount` (Texto) → insertá la variable **Monto** de la transacción
-     - `merchant` (Texto) → insertá la variable **Comercio / Nombre** de la transacción
+     - `text` (Texto) → tocá el campo y, en la barra de variables de arriba del teclado,
+       insertá la **única variable disponible: "Transacción"** (también puede aparecer como
+       "Atajo de entrada"). No busques una variable "Monto": no existe. Con la variable
+       "Transacción" alcanza — la app le saca el monto automáticamente.
 5. Desactivá **"Preguntar antes de ejecutar"** para que sea 100% automático.
 6. Guardá.
 
-Desde ahí, cada compra con Apple Pay aparece en la **Bandeja** de la app. La revisás,
-le ponés categoría y cuenta, y la aprobás con un toque.
+Desde ahí, cada compra con Apple Pay aparece en la **Bandeja** de la app con el monto ya
+detectado. La revisás, le ponés categoría y cuenta, y la aprobás con un toque.
+
+### ¿Y el nombre del comercio donde compré?
+
+La variable **"Transacción"** ya trae el nombre del comercio adentro, así que al mandarla
+en el campo `text` la app **intenta detectar el comercio automáticamente** y lo muestra en
+la Bandeja. Si en algún gasto no lo detecta bien, lo escribís a mano al aprobarlo (toma 2 seg).
+
+**Para que el comercio llegue siempre perfecto** (opcional, recomendado):
+1. En la misma acción "Obtener contenido de URL", agregá un **tercer campo**: `merchant` (Texto).
+2. Tocá ese campo e insertá la variable **"Transacción"**.
+3. Tocá la variable ya insertada → se abre un menú → elegí la propiedad **"Comerciante"**
+   (o "Merchant" / "Nombre del comercio").
+   - Si tu iPhone no muestra esa opción, no pasa nada: dejá solo `token` y `text`,
+     y la app igual saca el comercio del texto.
+
+Resumen de campos del JSON: `token`, `text` (variable Transacción) y, si podés, `merchant`
+(propiedad Comerciante de la Transacción).
 
 ---
 
@@ -67,13 +86,19 @@ manda solos a la app.
 
 ### Pasos (una sola vez, en la compu):
 1. Entrá a **https://script.google.com** → **Nuevo proyecto**.
-2. Borrá el código que aparece y pegá esto:
+2. Se abre un archivo llamado **`Código.gs`** (a la izquierda). Ahí va el código:
+   seleccioná todo lo que haya dentro (Ctrl+A o Cmd+A) y borralo. Si aparece vacío,
+   no importa. Pegá esto en `Código.gs`:
 
 ```javascript
 // CONFIG: pegá tu token (Ajustes → Apple Pay → token) y el remitente/asunto de tu banco
 const TOKEN = 'PEGA_TU_TOKEN_AQUI';
 const URL = 'https://yvivibcczpirjzipuiqb.supabase.co/functions/v1/email-ingest';
-const BUSQUEDA = 'from:(tu-banco@correo.com) newer_than:1d'; // ajustá a tu banco
+// UENO Bank — captura los 3 tipos de correo:
+//   "Recibiste una transferencia"               => INGRESO
+//   "Pago de servicio" / "Pagaste tu servicio"  => GASTO
+//   "Transferencia realizada"                   => GASTO (enviada)
+const BUSQUEDA = 'from:(algoueno@ueno.com.py) ("Recibiste una transferencia" OR "Pago de servicio" OR "Pagaste tu servicio" OR "Transferencia realizada" OR "Enviamos tu transferencia") newer_than:2d';
 
 function revisarCorreos() {
   const hilos = GmailApp.search(BUSQUEDA);
@@ -97,12 +122,24 @@ function revisarCorreos() {
 }
 ```
 
-3. Cambiá `TOKEN`, `URL` (ya está) y `BUSQUEDA` (el remitente de tu banco).
+3. Cambiá solo el `TOKEN` (la `URL` y la `BUSQUEDA` ya están listas para UENO + ANDE/Claro).
 4. Arriba, **Ejecutar** una vez para autorizar permisos de Gmail.
 5. Reloj (Activadores) → **Añadir activador** → función `revisarCorreos`,
    evento por tiempo, cada **5 o 10 minutos**. Guardá.
 
-Listo: los movimientos de tus correos aparecen en la **Bandeja** automáticamente.
+Listo. Por el correo de UENO entran a la **Bandeja** los 3 tipos, con monto, fecha y nombre:
+- **Transferencias recibidas** → **ingreso** (nombre del cliente que te envió).
+- **Pagos de servicios** (ANDE, Claro, etc.) → **gasto** (nombre de la empresa).
+- **Transferencias realizadas/enviadas** → **gasto** (nombre del beneficiario).
+
+Las compras con tarjeta NO entran por acá (esas ya las trae Apple Pay), así que **no se
+duplica nada**. Además, si el mismo correo se procesa dos veces, la app lo detecta por el
+N° de transacción y **no lo duplica**. En la Bandeja cada movimiento ya viene marcado como
+Ingreso o Gasto (lo podés cambiar antes de aprobar).
+
+> ✅ Remitente de UENO ya configurado: `algoueno@ueno.com.py`. Si algún pago de servicio
+> no aparece, es por las palabras clave: pasame el asunto del correo que te llegó y agrego
+> esa palabra a la búsqueda.
 
 ---
 

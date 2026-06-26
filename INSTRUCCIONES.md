@@ -104,19 +104,19 @@ function revisarCorreos() {
   const hilos = GmailApp.search(BUSQUEDA);
   hilos.forEach(function (hilo) {
     hilo.getMessages().forEach(function (msg) {
-      if (msg.isUnread() || !msg.isStarred()) {
-        UrlFetchApp.fetch(URL, {
-          method: 'post',
-          contentType: 'application/json',
-          payload: JSON.stringify({
-            token: TOKEN,
-            subject: msg.getSubject(),
-            text: msg.getPlainBody().slice(0, 1500),
-          }),
-          muteHttpExceptions: true,
-        });
-        msg.star(); // marcado para no repetir
-      }
+      if (msg.isStarred()) return; // ya procesado correctamente
+      const resp = UrlFetchApp.fetch(URL, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify({
+          token: TOKEN,
+          subject: msg.getSubject(),
+          text: msg.getPlainBody().slice(0, 1500),
+        }),
+        muteHttpExceptions: true,
+      });
+      // Solo marca la estrella si entró bien (200). Si falla, lo reintenta luego.
+      if (resp.getResponseCode() === 200) msg.star();
     });
   });
 }

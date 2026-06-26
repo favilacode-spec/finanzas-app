@@ -111,7 +111,7 @@ function revisarCorreos() {
         payload: JSON.stringify({
           token: TOKEN,
           subject: msg.getSubject(),
-          text: msg.getPlainBody().slice(0, 1500),
+          text: msg.getPlainBody().slice(0, 6000),
         }),
         muteHttpExceptions: true,
       });

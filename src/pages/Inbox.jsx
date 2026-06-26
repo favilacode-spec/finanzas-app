@@ -3,6 +3,7 @@ import { Inbox as InboxIcon, Check, X, Apple, Mail, ArrowDownLeft, ArrowUpRight,
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, fmtDate } from '../lib/format'
+import DistributionModal from '../components/DistributionModal'
 
 export default function Inbox() {
   const { household } = useAuth()
@@ -11,16 +12,19 @@ export default function Inbox() {
   const [cats, setCats] = useState([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState({})
+  const [rules, setRules] = useState([])
+  const [dist, setDist] = useState(null)
 
   const load = async () => {
     setLoading(true)
     try {
-      const [p, a, c] = await Promise.all([
+      const [p, a, c, r] = await Promise.all([
         supabase.from('pending_transactions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
         supabase.from('accounts').select('id,name').eq('archived', false),
         supabase.from('categories').select('id,name,kind'),
+        supabase.from('distribution_rules').select('*').order('sort'),
       ])
-      setItems(p.data || []); setAccounts(a.data || []); setCats(c.data || [])
+      setItems(p.data || []); setAccounts(a.data || []); setCats(c.data || []); setRules(r.data || [])
       const d = {}
       ;(p.data || []).forEach((it) => {
         d[it.id] = {
@@ -49,6 +53,9 @@ export default function Inbox() {
     if (d.amount != null && d.amount !== '' && Number(d.amount) !== Number(it.amount)) {
       await supabase.from('pending_transactions').update({ amount: parseInt(String(d.amount).replace(/[^0-9]/g, ''), 10) || 0 }).eq('id', it.id)
     }
+    const finalAmount = (d.amount != null && d.amount !== '')
+      ? (parseInt(String(d.amount).replace(/[^0-9]/g, ''), 10) || 0)
+      : Number(it.amount || 0)
     const { error } = await supabase.rpc('approve_pending', {
       p_id: it.id,
       p_account: d.account,
@@ -57,6 +64,10 @@ export default function Inbox() {
       p_to_account: d.type === 'transfer' ? d.toAccount : null,
     })
     if (error) return alert(error.message)
+    // Si fue un ingreso y hay reglas de distribución, mostrar el reparto
+    if ((d.type || 'expense') === 'income' && rules.length > 0 && finalAmount > 0) {
+      setDist({ amount: finalAmount })
+    }
     load()
   }
   const reject = async (id) => { await supabase.from('pending_transactions').update({ status: 'rejected' }).eq('id', id); load() }
@@ -167,6 +178,8 @@ export default function Inbox() {
           })}
         </div>
       )}
+
+      {dist && <DistributionModal amount={dist.amount} rules={rules} accounts={accounts} onClose={() => setDist(null)} />}
     </div>
   )
 }

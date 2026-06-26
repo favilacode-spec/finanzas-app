@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, moneyShort, fmtDateShort, monthRange, monthLabel } from '../lib/format'
 import TransactionModal from '../components/TransactionModal'
+import LabelChip from '../components/LabelChip'
 
 const PIE = ['#2f6fed', '#ef3e48', '#5b8def', '#ff7a82', '#0b3b8f', '#f0a500', '#7c5cff', '#22b8a6', '#e06bd0', '#9aa0a6']
 
@@ -18,24 +19,28 @@ export default function Dashboard() {
   const [cats, setCats] = useState({})
   const [showAdd, setShowAdd] = useState(false)
   const [trend, setTrend] = useState([])
+  const [labels, setLabels] = useState({})
 
   const load = async () => {
     if (!household) { setLoading(false); return }
     setLoading(true)
     try {
       const { start } = monthRange()
-      const [acc, bal, tx, cat, allTx] = await Promise.all([
+      const [acc, bal, tx, cat, allTx, lab] = await Promise.all([
         supabase.from('accounts').select('*').eq('archived', false),
         supabase.from('account_balances').select('*'),
         supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on', { ascending: false }),
         supabase.from('categories').select('id,name,color,icon'),
         supabase.from('transactions').select('amount,type,occurred_on').gte('occurred_on', sixMonthsAgo()),
+        supabase.from('account_labels').select('*'),
       ])
       setAccounts(acc.data || [])
       setBalances(bal.data || [])
       setTxns(tx.data || [])
       const cmap = {}; (cat.data || []).forEach((c) => { cmap[c.id] = c })
       setCats(cmap)
+      const lmap = {}; (lab.data || []).forEach((l) => { lmap[l.id] = l })
+      setLabels(lmap)
       setTrend(buildTrend(allTx.data || []))
     } catch (e) {
       console.error('Error cargando el resumen:', e)
@@ -158,7 +163,7 @@ export default function Dashboard() {
                 <span className="icon-chip" style={{ width: 32, height: 32, background: (a.color || '#0b3b8f') + '22' }}>
                   <span style={{ width: 12, height: 12, borderRadius: 4, background: a.color || '#0b3b8f' }} />
                 </span>
-                {a.name}
+                <span className="row" style={{ gap: 7, flexWrap: 'wrap' }}>{a.name}{labels[a.label_id] && <LabelChip label={labels[a.label_id]} size="sm" />}</span>
               </span>
               <span style={{ fontWeight: 700 }}>{money(balances.find((b) => b.account_id === a.id)?.balance || 0)}</span>
             </div>

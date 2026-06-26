@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { money, ACCOUNT_TYPES, accountTypeLabel } from '../lib/format'
 import Modal from '../components/Modal'
 import Icon from '../components/Icon'
+import LabelChip from '../components/LabelChip'
 
 const COLORS = ['#0b3b8f', '#2f6fed', '#d4202a', '#ef3e48', '#f0a500', '#22b8a6', '#7c5cff', '#e06bd0']
 
@@ -12,6 +13,7 @@ export default function Accounts() {
   const { household, user } = useAuth()
   const [accounts, setAccounts] = useState([])
   const [balances, setBalances] = useState([])
+  const [labels, setLabels] = useState([])
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [edit, setEdit] = useState(null)
@@ -19,16 +21,19 @@ export default function Accounts() {
 
   const load = async () => {
     setLoading(true)
-    const [acc, bal] = await Promise.all([
+    const [acc, bal, lab] = await Promise.all([
       supabase.from('accounts').select('*').order('created_at'),
       supabase.from('account_balances').select('*'),
+      supabase.from('account_labels').select('*').order('name'),
     ])
     setAccounts(acc.data || [])
     setBalances(bal.data || [])
+    setLabels(lab.data || [])
     setLoading(false)
   }
   useEffect(() => { if (household) load() }, [household])
 
+  const labelOf = (id) => labels.find((l) => l.id === id)
   const balOf = (id) => balances.find((b) => b.account_id === id)?.balance || 0
   const visible = accounts.filter((a) => showArchived ? a.archived : !a.archived)
   const total = accounts.filter((a) => !a.archived && !a.exclude_from_total).reduce((s, a) => s + balOf(a.id), 0)
@@ -74,7 +79,10 @@ export default function Accounts() {
                   </button>
                 </div>
               </div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{a.name}</div>
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{a.name}</div>
+                {labelOf(a.label_id) && <LabelChip label={labelOf(a.label_id)} />}
+              </div>
               <div className="text-muted" style={{ fontSize: 12.5 }}>{accountTypeLabel(a.type)}{a.bank ? ` · ${a.bank}` : ''}</div>
               <div className="stat-value" style={{ fontSize: 24, marginTop: 12, color: balOf(a.id) < 0 ? '#ff8a8f' : 'var(--text)' }}>{money(balOf(a.id))}</div>
               {a.type === 'credit_card' && a.credit_limit ? (
@@ -85,12 +93,12 @@ export default function Accounts() {
         </div>
       )}
 
-      {showForm && <AccountForm account={edit} household={household} user={user} onClose={() => setShowForm(false)} onSaved={load} />}
+      {showForm && <AccountForm account={edit} household={household} user={user} labels={labels} onClose={() => setShowForm(false)} onSaved={load} />}
     </div>
   )
 }
 
-function AccountForm({ account, household, user, onClose, onSaved }) {
+function AccountForm({ account, household, user, labels: initialLabels = [], onClose, onSaved }) {
   const [name, setName] = useState(account?.name || '')
   const [type, setType] = useState(account?.type || 'cash')
   const [bank, setBank] = useState(account?.bank || '')
@@ -98,8 +106,23 @@ function AccountForm({ account, household, user, onClose, onSaved }) {
   const [limit, setLimit] = useState(account?.credit_limit ? String(account.credit_limit) : '')
   const [color, setColor] = useState(account?.color || '#0b3b8f')
   const [exclude, setExclude] = useState(account?.exclude_from_total || false)
+  const [labels, setLabels] = useState(initialLabels)
+  const [labelId, setLabelId] = useState(account?.label_id || '')
+  const [newOpen, setNewOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState('#2f6fed')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  const createLabel = async () => {
+    if (!newName.trim()) return
+    const { data, error } = await supabase.from('account_labels')
+      .insert({ household_id: household.id, name: newName.trim(), color: newColor })
+      .select().single()
+    if (error) return setErr(error.message)
+    setLabels((l) => [...l, data]); setLabelId(data.id)
+    setNewOpen(false); setNewName(''); setNewColor('#2f6fed')
+  }
 
   const save = async (e) => {
     e.preventDefault()
@@ -110,7 +133,7 @@ function AccountForm({ account, household, user, onClose, onSaved }) {
       household_id: household.id, name: name.trim(), type, bank: bank || null,
       opening_balance: parseInt(String(opening).replace(/[^0-9-]/g, ''), 10) || 0,
       credit_limit: type === 'credit_card' ? (parseInt(String(limit).replace(/[^0-9]/g, ''), 10) || null) : null,
-      color, icon, exclude_from_total: exclude, created_by: user.id,
+      color, icon, exclude_from_total: exclude, label_id: labelId || null, created_by: user.id,
     }
     let error
     if (account) ({ error } = await supabase.from('accounts').update(payload).eq('id', account.id))
@@ -166,6 +189,33 @@ function AccountForm({ account, household, user, onClose, onSaved }) {
             </label>
           </div>
         </div>
+        <div className="field">
+          <label>Etiqueta (para qué usás esta cuenta)</label>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <button type="button" onClick={() => setLabelId('')}
+              className="badge" style={{ cursor: 'pointer', borderColor: !labelId ? 'var(--blue)' : 'var(--border)', color: !labelId ? '#bcd3ff' : 'var(--text-2)' }}>
+              Sin etiqueta
+            </button>
+            {labels.map((l) => (
+              <button type="button" key={l.id} onClick={() => setLabelId(l.id)}
+                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 999, fontSize: 12.5, fontWeight: 600, color: l.color, background: l.color + (labelId === l.id ? '33' : '18'), border: `1.5px solid ${labelId === l.id ? l.color : 'transparent'}` }}>
+                <span style={{ width: 7, height: 7, borderRadius: 999, background: l.color }} />{l.name}
+              </button>
+            ))}
+            <button type="button" onClick={() => setNewOpen((o) => !o)} className="badge" style={{ cursor: 'pointer' }}>+ Nueva</button>
+          </div>
+          {newOpen && (
+            <div className="row wrap" style={{ gap: 8, marginTop: 10, alignItems: 'center' }}>
+              <input className="form-input" style={{ flex: 1, minWidth: 140, padding: '8px 11px' }} placeholder="Ej: Hogar, Negocio, Ahorros"
+                value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), createLabel())} />
+              {COLORS.map((c) => (
+                <button type="button" key={c} onClick={() => setNewColor(c)} style={{ width: 24, height: 24, borderRadius: 6, background: c, border: newColor === c ? '2px solid #fff' : '2px solid transparent' }} />
+              ))}
+              <button type="button" className="btn btn-primary btn-sm" onClick={createLabel}>Crear</button>
+            </div>
+          )}
+        </div>
+
         <label className="row" style={{ gap: 8, fontSize: 13.5, color: 'var(--text-2)', marginBottom: 14, cursor: 'pointer' }}>
           <input type="checkbox" checked={exclude} onChange={(e) => setExclude(e.target.checked)} />
           No incluir en el patrimonio total

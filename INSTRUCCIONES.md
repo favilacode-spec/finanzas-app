@@ -131,6 +131,9 @@ Listo. Por el correo de UENO entran a la **Bandeja** los 3 tipos, con monto, fec
 - **Transferencias recibidas** → **ingreso** (nombre del cliente que te envió).
 - **Pagos de servicios** (ANDE, Claro, etc.) → **gasto** (nombre de la empresa).
 - **Transferencias realizadas/enviadas** → **gasto** (nombre del beneficiario).
+- **Transferencias entre tus propias cuentas** (cuando el remitente o beneficiario sos vos,
+  JOSE FABIAN AVILA SANCHO) → **transferencia interna**: en la Bandeja elegís de qué cuenta
+  salió y a qué cuenta entró (no cuenta como ingreso ni gasto).
 
 Las compras con tarjeta NO entran por acá (esas ya las trae Apple Pay), así que **no se
 duplica nada**. Además, si el mismo correo se procesa dos veces, la app lo detecta por el

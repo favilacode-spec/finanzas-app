@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Inbox as InboxIcon, Check, X, Apple, Mail, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { Inbox as InboxIcon, Check, X, Apple, Mail, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, fmtDate } from '../lib/format'
@@ -25,6 +25,7 @@ export default function Inbox() {
       ;(p.data || []).forEach((it) => {
         d[it.id] = {
           account: a.data?.[0]?.id || '',
+          toAccount: a.data?.[1]?.id || a.data?.[0]?.id || '',
           category: it.suggested_category_id || '',
           amount: it.amount ?? '',
           type: it.suggested_type || 'expense',
@@ -42,11 +43,18 @@ export default function Inbox() {
   const approve = async (it) => {
     const d = draft[it.id]
     if (!d?.account) return alert('Elegí una cuenta')
+    if (d.type === 'transfer') {
+      if (!d.toAccount || d.toAccount === d.account) return alert('Elegí una cuenta destino distinta')
+    }
     if (d.amount != null && d.amount !== '' && Number(d.amount) !== Number(it.amount)) {
       await supabase.from('pending_transactions').update({ amount: parseInt(String(d.amount).replace(/[^0-9]/g, ''), 10) || 0 }).eq('id', it.id)
     }
     const { error } = await supabase.rpc('approve_pending', {
-      p_id: it.id, p_account: d.account, p_category: d.category || null, p_type: d.type || 'expense',
+      p_id: it.id,
+      p_account: d.account,
+      p_category: d.type === 'transfer' ? null : (d.category || null),
+      p_type: d.type || 'expense',
+      p_to_account: d.type === 'transfer' ? d.toAccount : null,
     })
     if (error) return alert(error.message)
     load()
@@ -58,8 +66,8 @@ export default function Inbox() {
   return (
     <div>
       <p className="text-2" style={{ marginBottom: 16 }}>
-        Acá llegan los movimientos detectados automáticamente: gastos de Apple Pay, pagos de servicios
-        y transferencias recibidas (ingresos) de tu banco. Revisalos y aprobalos con un toque.
+        Acá llegan los movimientos detectados automáticamente: gastos de Apple Pay, pagos de servicios,
+        transferencias recibidas (ingresos) y transferencias entre tus cuentas. Revisalos y aprobalos con un toque.
       </p>
 
       {items.length === 0 ? (
@@ -72,8 +80,12 @@ export default function Inbox() {
         <div className="grid grid-2">
           {items.map((it) => {
             const d = draft[it.id] || {}
-            const isIncome = d.type === 'income'
+            const type = d.type || 'expense'
+            const isIncome = type === 'income'
+            const isTransfer = type === 'transfer'
             const catList = cats.filter((c) => c.kind === (isIncome ? 'income' : 'expense'))
+            const amtClass = isIncome ? 'amount-pos' : isTransfer ? 'text-2' : 'amount-neg'
+            const sign = isIncome ? '+' : isTransfer ? '' : '−'
             return (
               <div className="card" key={it.id}>
                 <div className="row between" style={{ marginBottom: 12 }}>
@@ -88,38 +100,56 @@ export default function Inbox() {
                       </div>
                     </div>
                   </span>
-                  <span className={isIncome ? 'amount-pos' : 'amount-neg'} style={{ fontSize: 18 }}>
-                    {isIncome ? '+' : '−'}{money(it.amount || 0)}
-                  </span>
+                  <span className={amtClass} style={{ fontSize: 18 }}>{sign}{money(it.amount || 0)}</span>
                 </div>
 
                 {it.raw_text && <div className="text-muted" style={{ fontSize: 12, marginBottom: 12, padding: 8, background: 'var(--bg-base)', borderRadius: 8 }}>{it.raw_text}</div>}
 
-                {/* Tipo: ingreso / gasto */}
+                {/* Tipo */}
                 <div className="segmented" style={{ marginBottom: 12 }}>
                   <button type="button" className={isIncome ? 'active-blue' : ''} onClick={() => { setField(it.id, 'type', 'income'); setField(it.id, 'category', '') }}>
-                    <ArrowDownLeft size={14} style={{ verticalAlign: -2, marginRight: 4 }} />Ingreso
+                    <ArrowDownLeft size={13} style={{ verticalAlign: -2, marginRight: 3 }} />Ingreso
                   </button>
-                  <button type="button" className={!isIncome ? 'active-red' : ''} onClick={() => { setField(it.id, 'type', 'expense'); setField(it.id, 'category', '') }}>
-                    <ArrowUpRight size={14} style={{ verticalAlign: -2, marginRight: 4 }} />Gasto
+                  <button type="button" className={type === 'expense' ? 'active-red' : ''} onClick={() => { setField(it.id, 'type', 'expense'); setField(it.id, 'category', '') }}>
+                    <ArrowUpRight size={13} style={{ verticalAlign: -2, marginRight: 3 }} />Gasto
+                  </button>
+                  <button type="button" className={isTransfer ? 'active-gray' : ''} onClick={() => setField(it.id, 'type', 'transfer')}>
+                    <ArrowLeftRight size={13} style={{ verticalAlign: -2, marginRight: 3 }} />Transfer.
                   </button>
                 </div>
 
-                <div className="grid grid-2" style={{ gap: 10 }}>
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>Cuenta</label>
-                    <select className="form-select" value={d.account || ''} onChange={(e) => setField(it.id, 'account', e.target.value)}>
-                      {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
+                {isTransfer ? (
+                  <div className="grid grid-2" style={{ gap: 10 }}>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label>Salió de</label>
+                      <select className="form-select" value={d.account || ''} onChange={(e) => setField(it.id, 'account', e.target.value)}>
+                        {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label>Entró a</label>
+                      <select className="form-select" value={d.toAccount || ''} onChange={(e) => setField(it.id, 'toAccount', e.target.value)}>
+                        {accounts.filter((a) => a.id !== d.account).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
                   </div>
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>Categoría</label>
-                    <select className="form-select" value={d.category || ''} onChange={(e) => setField(it.id, 'category', e.target.value)}>
-                      <option value="">Sin categoría</option>
-                      {catList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                ) : (
+                  <div className="grid grid-2" style={{ gap: 10 }}>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label>Cuenta</label>
+                      <select className="form-select" value={d.account || ''} onChange={(e) => setField(it.id, 'account', e.target.value)}>
+                        {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="field" style={{ margin: 0 }}>
+                      <label>Categoría</label>
+                      <select className="form-select" value={d.category || ''} onChange={(e) => setField(it.id, 'category', e.target.value)}>
+                        <option value="">Sin categoría</option>
+                        {catList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {(it.amount == null) && (
                   <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>

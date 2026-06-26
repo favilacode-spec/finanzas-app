@@ -95,8 +95,16 @@ function CatForm({ cat, household, onClose, onSaved }) {
         </div>
         <div className="field">
           <label>Color</label>
-          <div className="row wrap" style={{ gap: 8 }}>
+          <div className="row wrap" style={{ gap: 8, alignItems: 'center' }}>
             {COLORS.map((c) => <button type="button" key={c} onClick={() => setColor(c)} style={{ width: 30, height: 30, borderRadius: 8, background: c, border: color === c ? '2px solid #fff' : '2px solid transparent' }} />)}
+            <label title="Elegir cualquier color" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', border: !COLORS.includes(color) ? '2px solid #fff' : '2px solid transparent', background: 'conic-gradient(#ff0000,#ff9900,#ffee00,#33dd00,#00ddcc,#0066ff,#cc00ff,#ff0066,#ff0000)' }}>
+                <span style={{ width: 16, height: 16, borderRadius: 4, background: color, boxShadow: '0 0 0 2px rgba(0,0,0,.35)' }} />
+              </span>
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
+                style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'auto' }} />
+              <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Más colores</span>
+            </label>
           </div>
         </div>
         <div className="field">

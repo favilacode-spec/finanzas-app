@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Pencil, Repeat, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, Pencil, Repeat, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, fmtDate, todayISO } from '../lib/format'
 import Modal from '../components/Modal'
 
 const FREQ = { daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual', yearly: 'Anual' }
+const monthlyEq = (r) => {
+  const a = Number(r.amount || 0)
+  if (r.frequency === 'daily') return a * 30
+  if (r.frequency === 'weekly') return a * 4.33
+  if (r.frequency === 'yearly') return a / 12
+  return a
+}
 
 function advance(dateStr, freq) {
   const d = new Date(dateStr)
@@ -23,6 +30,7 @@ export default function Recurring() {
   const [cats, setCats] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(null)
+  const [fundMonths, setFundMonths] = useState(3)
 
   const load = async () => {
     setLoading(true)
@@ -49,14 +57,44 @@ export default function Recurring() {
     load()
   }
   const del = async (id) => { if (confirm('¿Eliminar este recurrente?')) { await supabase.from('recurring_transactions').delete().eq('id', id); load() } }
+  const toggleFund = async (r) => { await supabase.from('recurring_transactions').update({ include_in_fund: !r.include_in_fund }).eq('id', r.id); load() }
 
   if (loading) return <div style={{ padding: 40, display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>
+
+  const fundItems = items.filter((r) => r.include_in_fund && r.type === 'expense')
+  const monthlyFund = fundItems.reduce((s, r) => s + monthlyEq(r), 0)
+  const fundTarget = monthlyFund * fundMonths
 
   return (
     <div>
       <div className="row between" style={{ marginBottom: 16 }}>
         <p className="text-2">Movimientos que se repiten. Registralos con un toque cuando toca.</p>
         <button className="btn btn-primary" onClick={() => setForm({})}><Plus size={18} /> Nuevo</button>
+      </div>
+
+      {/* Fondo de emergencia */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row between wrap" style={{ gap: 12 }}>
+          <div className="row" style={{ gap: 12 }}>
+            <span className="icon-chip" style={{ background: 'rgba(255,255,255,0.06)' }}><ShieldCheck size={20} /></span>
+            <div>
+              <div className="card-title" style={{ margin: 0 }}>Fondo de emergencia</div>
+              <div className="text-muted" style={{ fontSize: 12.5 }}>
+                {fundItems.length === 0 ? 'Marcá abajo "Fondo" en los gastos esenciales para incluirlos.' : `${fundItems.length} gastos esenciales · ${money(monthlyFund)}/mes`}
+              </div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="stat-value" style={{ fontSize: 24 }}>{money(fundTarget)}</div>
+            <div className="row" style={{ gap: 6, justifyContent: 'flex-end', marginTop: 4 }}>
+              <span className="text-muted" style={{ fontSize: 12 }}>cubre</span>
+              {[3, 6, 12].map((m) => (
+                <button key={m} type="button" onClick={() => setFundMonths(m)}
+                  className="badge" style={{ cursor: 'pointer', borderColor: fundMonths === m ? 'var(--blue)' : 'var(--border)', color: fundMonths === m ? '#fff' : 'var(--text-2)' }}>{m}m</button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {items.length === 0 ? (
@@ -76,6 +114,12 @@ export default function Recurring() {
                     </div>
                   </span>
                   <div className="row" style={{ gap: 4 }}>
+                    {r.type === 'expense' && (
+                      <button className="icon-btn" onClick={() => toggleFund(r)} title="Incluir en fondo de emergencia"
+                        style={{ color: r.include_in_fund ? '#e7e7ea' : 'var(--text-muted)', background: r.include_in_fund ? 'var(--blue-soft)' : undefined }}>
+                        <ShieldCheck size={14} />
+                      </button>
+                    )}
                     <button className="icon-btn" onClick={() => setForm(r)}><Pencil size={14} /></button>
                     <button className="icon-btn" onClick={() => del(r.id)}><Trash2 size={14} /></button>
                   </div>

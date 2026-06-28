@@ -8,6 +8,8 @@ import Transactions from './pages/Transactions'
 import Categories from './pages/Categories'
 import Goals from './pages/Goals'
 import Recurring from './pages/Recurring'
+import Debts from './pages/Debts'
+import Trip from './pages/Trip'
 import Reports from './pages/Reports'
 import Inbox from './pages/Inbox'
 import Insights from './pages/Insights'
@@ -32,6 +34,8 @@ export default function App() {
         <Route path="/categorias" element={<Categories />} />
         <Route path="/metas" element={<Goals />} />
         <Route path="/recurrentes" element={<Recurring />} />
+        <Route path="/deudas" element={<Debts />} />
+        <Route path="/viaje" element={<Trip />} />
         <Route path="/reportes" element={<Reports />} />
         <Route path="/bandeja" element={<Inbox />} />
         <Route path="/consejos" element={<Insights />} />

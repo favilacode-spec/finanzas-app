@@ -11,8 +11,13 @@ const tipStyle = { background: '#18223a', border: '1px solid rgba(255,255,255,0.
 export default function Reports() {
   const { household } = useAuth()
   const [months, setMonths] = useState(6)
-  const [txns, setTxns] = useState([])
+  const [allTxns, setAllTxns] = useState([])
   const [cats, setCats] = useState({})
+  const [accounts, setAccounts] = useState([])
+  const [labels, setLabels] = useState([])
+  const [fAccount, setFAccount] = useState('')
+  const [fLabel, setFLabel] = useState('')
+  const [fCat, setFCat] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,12 +28,25 @@ export default function Reports() {
     Promise.all([
       supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on'),
       supabase.from('categories').select('id,name,color'),
-    ]).then(([tx, c]) => {
-      setTxns(tx.data || [])
+      supabase.from('accounts').select('id,name,label_id').eq('archived', false).order('name'),
+      supabase.from('account_labels').select('*').order('name'),
+    ]).then(([tx, c, a, l]) => {
+      setAllTxns(tx.data || [])
       const m = {}; (c.data || []).forEach((x) => m[x.id] = x); setCats(m)
+      setAccounts(a.data || [])
+      setLabels(l.data || [])
       setLoading(false)
     })
   }, [household, months])
+
+  // aplicar filtros (cuenta / etiqueta / categoría)
+  const labelAccountIds = fLabel ? accounts.filter((a) => a.label_id === fLabel).map((a) => a.id) : null
+  const txns = allTxns.filter((t) => {
+    if (fAccount && t.account_id !== fAccount && t.transfer_account_id !== fAccount) return false
+    if (labelAccountIds && !labelAccountIds.includes(t.account_id) && !labelAccountIds.includes(t.transfer_account_id)) return false
+    if (fCat && t.category_id !== fCat) return false
+    return true
+  })
 
   const trend = useMemo(() => {
     const map = {}
@@ -78,11 +96,40 @@ export default function Reports() {
 
   return (
     <div>
-      <div className="row between wrap" style={{ marginBottom: 16, gap: 10 }}>
+      <div className="row between wrap" style={{ marginBottom: 12, gap: 10 }}>
         <div className="segmented" style={{ maxWidth: 360 }}>
           {[3, 6, 12].map((m) => <button key={m} className={months === m ? 'active-blue' : ''} onClick={() => setMonths(m)}>{m} meses</button>)}
         </div>
         <button className="btn btn-secondary" onClick={exportCSV}><Download size={16} /> Exportar CSV</button>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="grid grid-3" style={{ gap: 12 }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Cuenta</label>
+            <select className="form-select" value={fAccount} onChange={(e) => setFAccount(e.target.value)}>
+              <option value="">Todas</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Etiqueta</label>
+            <select className="form-select" value={fLabel} onChange={(e) => setFLabel(e.target.value)}>
+              <option value="">Todas</option>
+              {labels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Categoría</label>
+            <select className="form-select" value={fCat} onChange={(e) => setFCat(e.target.value)}>
+              <option value="">Todas</option>
+              {Object.values(cats).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+        {(fAccount || fLabel || fCat) && (
+          <button className="btn-ghost btn-sm" style={{ marginTop: 10, color: 'var(--text-2)' }} onClick={() => { setFAccount(''); setFLabel(''); setFCat('') }}>Limpiar filtros</button>
+        )}
       </div>
 
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
@@ -148,6 +195,25 @@ export default function Reports() {
           )}
         </div>
       </div>
+
+      {byCat.length > 0 && (
+        <div className="card card-pad-0" style={{ marginTop: 16 }}>
+          <div style={{ padding: '14px 18px' }} className="card-title">En qué se va la plata (gastos por categoría)</div>
+          <table className="data-table">
+            <thead><tr><th>Categoría</th><th style={{ textAlign: 'right' }}>Total</th><th style={{ textAlign: 'right' }}>%</th><th style={{ textAlign: 'right' }}>Prom./mes</th></tr></thead>
+            <tbody>
+              {byCat.map((d, i) => (
+                <tr key={i}>
+                  <td><span className="row" style={{ gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: d.color }} />{d.name}</span></td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{money(d.value)}</td>
+                  <td style={{ textAlign: 'right' }} className="text-2">{totalOut > 0 ? ((d.value / totalOut) * 100).toFixed(0) : 0}%</td>
+                  <td style={{ textAlign: 'right' }} className="text-muted">{money(d.value / months)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

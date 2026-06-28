@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, PieChart, Tags, Target,
   Repeat, BarChart3, Inbox as InboxIcon, Sparkles, Settings as Cog, Menu, LogOut,
+  CreditCard, Plane,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -12,7 +13,9 @@ const NAV = [
   { to: '/cuentas', label: 'Cuentas', icon: Wallet },
   { to: '/movimientos', label: 'Movimientos', icon: ArrowLeftRight },
   { to: '/metas', label: 'Metas de ahorro', icon: Target },
+  { to: '/deudas', label: 'Deudas', icon: CreditCard },
   { to: '/recurrentes', label: 'Recurrentes', icon: Repeat },
+  { to: '/viaje', label: 'Viaje', icon: Plane },
   { to: '/categorias', label: 'Categorías', icon: Tags },
   { to: '/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/bandeja', label: 'Bandeja', icon: InboxIcon, badge: true },

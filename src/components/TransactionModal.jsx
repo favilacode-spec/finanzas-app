@@ -120,7 +120,7 @@ export default function TransactionModal({ onClose, onSaved, edit, defaultAccoun
           <input className="form-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opcional" />
         </div>
 
-        {err && <div style={{ color: '#ff9aa0', fontSize: 13, marginBottom: 12 }}>{err}</div>}
+        {err && <div style={{ color: '#c9c9cf', fontSize: 13, marginBottom: 12 }}>{err}</div>}
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       </form>
     </Modal>

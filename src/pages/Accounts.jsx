@@ -47,8 +47,8 @@ export default function Accounts() {
 
   return (
     <div>
-      <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(120deg, var(--blue-deep), #0a1530)' }}>
-        <div className="stat-label" style={{ color: '#bcd3ff' }}>Patrimonio total (cuentas activas)</div>
+      <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(120deg, #1a1a1f, #0c0c0f)' }}>
+        <div className="stat-label" style={{ color: '#ededf2' }}>Patrimonio total (cuentas activas)</div>
         <div className="stat-value" style={{ fontSize: 32 }}>{money(total)}</div>
       </div>
 
@@ -84,7 +84,7 @@ export default function Accounts() {
                 {labelOf(a.label_id) && <LabelChip label={labelOf(a.label_id)} />}
               </div>
               <div className="text-muted" style={{ fontSize: 12.5 }}>{accountTypeLabel(a.type)}{a.bank ? ` · ${a.bank}` : ''}</div>
-              <div className="stat-value" style={{ fontSize: 24, marginTop: 12, color: balOf(a.id) < 0 ? '#ff8a8f' : 'var(--text)' }}>{money(balOf(a.id))}</div>
+              <div className="stat-value" style={{ fontSize: 24, marginTop: 12, color: balOf(a.id) < 0 ? '#86868c' : 'var(--text)' }}>{money(balOf(a.id))}</div>
               {a.type === 'credit_card' && a.credit_limit ? (
                 <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>Límite: {money(a.credit_limit)}</div>
               ) : null}
@@ -193,7 +193,7 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
           <label>Etiqueta (para qué usás esta cuenta)</label>
           <div className="row wrap" style={{ gap: 8 }}>
             <button type="button" onClick={() => setLabelId('')}
-              className="badge" style={{ cursor: 'pointer', borderColor: !labelId ? 'var(--blue)' : 'var(--border)', color: !labelId ? '#bcd3ff' : 'var(--text-2)' }}>
+              className="badge" style={{ cursor: 'pointer', borderColor: !labelId ? 'var(--blue)' : 'var(--border)', color: !labelId ? '#ededf2' : 'var(--text-2)' }}>
               Sin etiqueta
             </button>
             {labels.map((l) => (
@@ -220,7 +220,7 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
           <input type="checkbox" checked={exclude} onChange={(e) => setExclude(e.target.checked)} />
           No incluir en el patrimonio total
         </label>
-        {err && <div style={{ color: '#ff9aa0', fontSize: 13, marginBottom: 12 }}>{err}</div>}
+        {err && <div style={{ color: '#c9c9cf', fontSize: 13, marginBottom: 12 }}>{err}</div>}
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       </form>
     </Modal>

@@ -46,7 +46,7 @@ export default function DistributionModal({ amount, rules, accounts, onClose }) 
             <span style={{ fontWeight: 700 }}>{money(totalMonto)}</span>
           </div>
           {totalPct !== 100 && (
-            <p style={{ color: '#ff9aa0', fontSize: 12.5, marginTop: 8 }}>⚠️ Los porcentajes suman {totalPct}%, no 100%. Revisá la configuración en Ajustes.</p>
+            <p style={{ color: '#c9c9cf', fontSize: 12.5, marginTop: 8 }}>⚠️ Los porcentajes suman {totalPct}%, no 100%. Revisá la configuración en Ajustes.</p>
           )}
         </>
       )}

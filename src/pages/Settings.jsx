@@ -92,7 +92,7 @@ export default function Settings() {
 
   return (
     <div style={{ maxWidth: 720 }}>
-      {msg && <div className="card" style={{ marginBottom: 16, background: 'var(--blue-soft)', borderColor: 'var(--blue-border)', color: '#bcd3ff', padding: '10px 14px' }}>{msg}</div>}
+      {msg && <div className="card" style={{ marginBottom: 16, background: 'var(--blue-soft)', borderColor: 'var(--blue-border)', color: '#ededf2', padding: '10px 14px' }}>{msg}</div>}
 
       {/* Perfil */}
       <div className="card" style={{ marginBottom: 16 }}>
@@ -177,7 +177,7 @@ export default function Settings() {
         ))}
         <div className="row between" style={{ marginTop: 12 }}>
           <button className="btn btn-ghost btn-sm" onClick={addRule}><Plus size={15} /> Agregar fila</button>
-          <span className="badge" style={{ background: totalPct(rules) === 100 ? 'var(--blue-soft)' : 'var(--red-soft)', color: totalPct(rules) === 100 ? '#bcd3ff' : '#ff9aa0', borderColor: totalPct(rules) === 100 ? 'var(--blue-border)' : 'var(--red-border)' }}>
+          <span className="badge" style={{ background: totalPct(rules) === 100 ? 'var(--blue-soft)' : 'var(--red-soft)', color: totalPct(rules) === 100 ? '#ededf2' : '#c9c9cf', borderColor: totalPct(rules) === 100 ? 'var(--blue-border)' : 'var(--red-border)' }}>
             Total: {totalPct(rules)}%
           </span>
         </div>

@@ -69,7 +69,7 @@ export default function Recurring() {
               <div className="card" key={r.id}>
                 <div className="row between" style={{ marginBottom: 8 }}>
                   <span className="row" style={{ gap: 10 }}>
-                    <span className="icon-chip" style={{ color: r.type === 'income' ? '#7fb0ff' : '#ff8a8f', background: r.type === 'income' ? 'var(--blue-soft)' : 'var(--red-soft)' }}><Repeat size={18} /></span>
+                    <span className="icon-chip" style={{ color: r.type === 'income' ? '#e7e7ea' : '#86868c', background: r.type === 'income' ? 'var(--blue-soft)' : 'var(--red-soft)' }}><Repeat size={18} /></span>
                     <div>
                       <div style={{ fontWeight: 700 }}>{r.payee || catName(r.category_id) || 'Recurrente'}</div>
                       <div className="text-muted" style={{ fontSize: 12 }}>{FREQ[r.frequency]} · {accName(r.account_id)}</div>
@@ -82,7 +82,7 @@ export default function Recurring() {
                 </div>
                 <div className="row between">
                   <span className={r.type === 'income' ? 'amount-pos' : 'amount-neg'} style={{ fontSize: 18 }}>{r.type === 'income' ? '+' : '−'}{money(r.amount)}</span>
-                  <span className="badge" style={due ? { background: 'var(--red-soft)', color: '#ff9aa0', borderColor: 'var(--red-border)' } : undefined}>Próx: {fmtDate(r.next_date)}</span>
+                  <span className="badge" style={due ? { background: 'var(--red-soft)', color: '#c9c9cf', borderColor: 'var(--red-border)' } : undefined}>Próx: {fmtDate(r.next_date)}</span>
                 </div>
                 <button className="btn btn-secondary btn-sm btn-block" style={{ marginTop: 12 }} onClick={() => post(r)}><CheckCircle2 size={15} /> Registrar ahora</button>
               </div>

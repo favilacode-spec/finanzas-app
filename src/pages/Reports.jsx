@@ -22,10 +22,10 @@ export default function Reports() {
     const start = d.toISOString().slice(0, 10)
     Promise.all([
       supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on'),
-      supabase.from('categories').select('id,name'),
+      supabase.from('categories').select('id,name,color'),
     ]).then(([tx, c]) => {
       setTxns(tx.data || [])
-      const m = {}; (c.data || []).forEach((x) => m[x.id] = x.name); setCats(m)
+      const m = {}; (c.data || []).forEach((x) => m[x.id] = x); setCats(m)
       setLoading(false)
     })
   }, [household, months])
@@ -53,7 +53,11 @@ export default function Reports() {
       const k = t.category_id || 'none'
       m[k] = (m[k] || 0) + Number(t.amount)
     })
-    return Object.entries(m).map(([k, v]) => ({ name: k === 'none' ? 'Sin categoría' : (cats[k] || '—'), value: v })).sort((a, b) => b.value - a.value)
+    return Object.entries(m).map(([k, v]) => ({
+      name: k === 'none' ? 'Sin categoría' : (cats[k]?.name || '—'),
+      value: v,
+      color: k === 'none' ? '#6f6f76' : (cats[k]?.color || '#6f6f76'),
+    })).sort((a, b) => b.value - a.value)
   }, [txns, cats])
 
   const totalIn = txns.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
@@ -62,7 +66,7 @@ export default function Reports() {
   const exportCSV = () => {
     const rows = [['Fecha', 'Tipo', 'Monto', 'Categoría', 'Detalle', 'Nota']]
     txns.slice().reverse().forEach((t) => rows.push([
-      fmtDateShort(t.occurred_on), t.type, t.amount, cats[t.category_id] || '', (t.payee || '').replace(/[\n,]/g, ' '), (t.note || '').replace(/[\n,]/g, ' '),
+      fmtDateShort(t.occurred_on), t.type, t.amount, cats[t.category_id]?.name || '', (t.payee || '').replace(/[\n,]/g, ' '), (t.note || '').replace(/[\n,]/g, ' '),
     ]))
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -84,7 +88,7 @@ export default function Reports() {
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
         <div className="card"><div className="stat-label">Ingresos del período</div><div className="stat-value amount-pos" style={{ fontSize: 22 }}>{money(totalIn)}</div></div>
         <div className="card"><div className="stat-label">Gastos del período</div><div className="stat-value amount-neg" style={{ fontSize: 22 }}>{money(totalOut)}</div></div>
-        <div className="card"><div className="stat-label">Ahorro del período</div><div className="stat-value" style={{ fontSize: 22, color: totalIn - totalOut >= 0 ? '#7fb0ff' : '#ff8a8f' }}>{money(totalIn - totalOut)}</div></div>
+        <div className="card"><div className="stat-label">Ahorro del período</div><div className="stat-value" style={{ fontSize: 22, color: totalIn - totalOut >= 0 ? '#f4f4f6' : '#86868c' }}>{money(totalIn - totalOut)}</div></div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -93,16 +97,16 @@ export default function Reports() {
           <ResponsiveContainer>
             <AreaChart data={trend}>
               <defs>
-                <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2f6fed" stopOpacity={0.5} /><stop offset="100%" stopColor="#2f6fed" stopOpacity={0} /></linearGradient>
-                <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ef3e48" stopOpacity={0.5} /><stop offset="100%" stopColor="#ef3e48" stopOpacity={0} /></linearGradient>
+                <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e7e7ea" stopOpacity={0.45} /><stop offset="100%" stopColor="#e7e7ea" stopOpacity={0} /></linearGradient>
+                <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6b6b72" stopOpacity={0.45} /><stop offset="100%" stopColor="#6b6b72" stopOpacity={0} /></linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="month" tick={{ fill: '#5d6c8c', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={moneyShort} tick={{ fill: '#5d6c8c', fontSize: 11 }} axisLine={false} tickLine={false} width={60} />
               <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} />
               <Legend wrapperStyle={{ fontSize: 13 }} />
-              <Area type="monotone" dataKey="ingreso" name="Ingresos" stroke="#2f6fed" fill="url(#gIn)" strokeWidth={2} />
-              <Area type="monotone" dataKey="gasto" name="Gastos" stroke="#ef3e48" fill="url(#gOut)" strokeWidth={2} />
+              <Area type="monotone" dataKey="ingreso" name="Ingresos" stroke="#e7e7ea" fill="url(#gIn)" strokeWidth={2} />
+              <Area type="monotone" dataKey="gasto" name="Gastos" stroke="#9a9aa1" fill="url(#gOut)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -116,7 +120,7 @@ export default function Reports() {
               <ResponsiveContainer>
                 <PieChart>
                   <Pie data={byCat.slice(0, 10)} dataKey="value" nameKey="name" outerRadius={95} label={(e) => `${(e.percent * 100).toFixed(0)}%`} labelLine={false}>
-                    {byCat.slice(0, 10).map((_, i) => <Cell key={i} fill={PIE[i % PIE.length]} />)}
+                    {byCat.slice(0, 10).map((d, i) => <Cell key={i} fill={d.color} />)}
                   </Pie>
                   <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} />
                 </PieChart>
@@ -135,7 +139,9 @@ export default function Reports() {
                   <XAxis type="number" tickFormatter={moneyShort} tick={{ fill: '#5d6c8c', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="name" tick={{ fill: '#a3b2d1', fontSize: 12 }} width={110} axisLine={false} tickLine={false} />
                   <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                  <Bar dataKey="value" fill="#2f6fed" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                    {byCat.slice(0, 8).map((d, i) => <Cell key={i} fill={d.color} />)}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

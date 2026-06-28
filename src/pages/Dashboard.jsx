@@ -67,7 +67,7 @@ export default function Dashboard() {
     byCat[key] = (byCat[key] || 0) + Number(t.amount)
   })
   const pieData = Object.entries(byCat)
-    .map(([k, v]) => ({ name: k === 'none' ? 'Sin categoría' : (cats[k]?.name || '—'), value: v }))
+    .map(([k, v]) => ({ name: k === 'none' ? 'Sin categoría' : (cats[k]?.name || '—'), value: v, color: k === 'none' ? '#6f6f76' : (cats[k]?.color || '#6f6f76') }))
     .sort((a, b) => b.value - a.value).slice(0, 10)
 
   return (
@@ -87,16 +87,16 @@ export default function Dashboard() {
           <div className="stat-value">{money(totalBalance)}</div>
         </div>
         <div className="card">
-          <div className="row between"><span className="stat-label">Ingresos del mes</span><TrendingUp size={18} style={{ color: '#7fb0ff' }} /></div>
+          <div className="row between"><span className="stat-label">Ingresos del mes</span><TrendingUp size={18} style={{ color: '#cfcfd4' }} /></div>
           <div className="stat-value amount-pos">{money(income)}</div>
         </div>
         <div className="card">
-          <div className="row between"><span className="stat-label">Gastos del mes</span><TrendingDown size={18} style={{ color: '#ff8a8f' }} /></div>
+          <div className="row between"><span className="stat-label">Gastos del mes</span><TrendingDown size={18} style={{ color: '#86868c' }} /></div>
           <div className="stat-value amount-neg">{money(expense)}</div>
         </div>
         <div className="card">
           <div className="row between"><span className="stat-label">Balance del mes</span></div>
-          <div className="stat-value" style={{ color: net >= 0 ? '#7fb0ff' : '#ff8a8f' }}>{money(net)}</div>
+          <div className="stat-value" style={{ color: net >= 0 ? '#f4f4f6' : '#86868c' }}>{money(net)}</div>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export default function Dashboard() {
                 <ResponsiveContainer>
                   <PieChart>
                     <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={80} paddingAngle={2}>
-                      {pieData.map((_, i) => <Cell key={i} fill={PIE[i % PIE.length]} />)}
+                      {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
                     </Pie>
                     <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} />
                   </PieChart>
@@ -121,7 +121,7 @@ export default function Dashboard() {
               <div style={{ flex: 1, minWidth: 160 }}>
                 {pieData.slice(0, 6).map((d, i) => (
                   <div className="row between" key={i} style={{ padding: '5px 0', fontSize: 13.5 }}>
-                    <span className="row" style={{ gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: PIE[i % PIE.length] }} /> {d.name}</span>
+                    <span className="row" style={{ gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: d.color }} /> {d.name}</span>
                     <span style={{ fontWeight: 600 }}>{money(d.value)}</span>
                   </div>
                 ))}
@@ -140,8 +140,8 @@ export default function Dashboard() {
                 <XAxis dataKey="month" tick={{ fill: '#5d6c8c', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={moneyShort} tick={{ fill: '#5d6c8c', fontSize: 11 }} axisLine={false} tickLine={false} width={56} />
                 <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                <Bar dataKey="ingreso" fill="#2f6fed" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="gasto" fill="#ef3e48" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ingreso" fill="#e7e7ea" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="gasto" fill="#6b6b72" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -101,7 +101,7 @@ export default function Inbox() {
               <div className="card" key={it.id}>
                 <div className="row between" style={{ marginBottom: 12 }}>
                   <span className="row" style={{ gap: 9 }}>
-                    <span className="icon-chip" style={{ background: isIncome ? 'var(--blue-soft)' : 'var(--bg-elevated)', color: isIncome ? '#7fb0ff' : 'var(--text)' }}>
+                    <span className="icon-chip" style={{ background: isIncome ? 'var(--blue-soft)' : 'var(--bg-elevated)', color: isIncome ? '#e7e7ea' : 'var(--text)' }}>
                       {it.source === 'apple_pay' ? <Apple size={18} /> : <Mail size={18} />}
                     </span>
                     <div>

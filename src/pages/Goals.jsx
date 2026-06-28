@@ -46,7 +46,7 @@ export default function Goals() {
               <div className="card" key={g.id}>
                 <div className="row between" style={{ marginBottom: 12 }}>
                   <span className="row" style={{ gap: 10 }}>
-                    <span className="icon-chip" style={{ background: (g.color || '#d4202a') + '22', color: g.color || '#ef3e48' }}><Target size={19} /></span>
+                    <span className="icon-chip" style={{ background: 'rgba(255,255,255,0.06)', color: '#d6d6db' }}><Target size={19} /></span>
                     <div>
                       <div style={{ fontWeight: 700 }}>{g.name}</div>
                       {g.target_date && <div className="text-muted" style={{ fontSize: 12 }}>Meta: {fmtDate(g.target_date)}</div>}
@@ -58,7 +58,7 @@ export default function Goals() {
                   </div>
                 </div>
                 <div className="stat-value" style={{ fontSize: 22 }}>{money(g.current_amount)} <span className="text-muted" style={{ fontSize: 14, fontWeight: 500 }}>/ {money(g.target_amount)}</span></div>
-                <div className="progress" style={{ marginTop: 10 }}><span style={{ width: pct + '%', background: done ? '#22b8a6' : 'var(--blue)' }} /></div>
+                <div className="progress" style={{ marginTop: 10 }}><span style={{ width: pct + '%', background: done ? '#e7e7ea' : 'var(--blue)' }} /></div>
                 <div className="row between" style={{ marginTop: 10 }}>
                   <span className="badge" style={{ background: done ? 'var(--blue-soft)' : undefined }}>{done ? '¡Completada! 🎉' : `${pct.toFixed(0)}%`}</span>
                   <button className="btn btn-secondary btn-sm" onClick={() => addFunds(g)}>+ Agregar ahorro</button>

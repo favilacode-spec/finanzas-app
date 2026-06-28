@@ -39,7 +39,7 @@ export default function Login() {
     <div className="center-screen" style={{ padding: 18 }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
-          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: 18, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, var(--blue) 0%, var(--blue-deep) 45%, var(--red) 100%)', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: 18, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, #33333a 0%, #0c0c0f 100%)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
             <Wallet size={32} color="#fff" strokeWidth={2.2} />
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800 }}>Mi Billetera CR</h1>
@@ -68,8 +68,8 @@ export default function Login() {
               <input className="form-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} required />
             </div>
 
-            {err && <div className="card" style={{ padding: '10px 14px', marginBottom: 14, background: 'var(--red-soft)', borderColor: 'var(--red-border)', color: '#ff9aa0', fontSize: 13.5 }}>{err}</div>}
-            {msg && <div className="card" style={{ padding: '10px 14px', marginBottom: 14, background: 'var(--blue-soft)', borderColor: 'var(--blue-border)', color: '#bcd3ff', fontSize: 13.5 }}>{msg}</div>}
+            {err && <div className="card" style={{ padding: '10px 14px', marginBottom: 14, background: 'var(--red-soft)', borderColor: 'var(--red-border)', color: '#d0d0d6', fontSize: 13.5 }}>{err}</div>}
+            {msg && <div className="card" style={{ padding: '10px 14px', marginBottom: 14, background: 'var(--blue-soft)', borderColor: 'var(--blue-border)', color: '#ededf2', fontSize: 13.5 }}>{msg}</div>}
 
             <button className="btn btn-primary btn-block" disabled={busy}>
               {busy ? 'Procesando…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}

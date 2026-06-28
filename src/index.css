@@ -11,17 +11,16 @@
   --bg-elevated:  #17171b;
   --bg-hover:     #1f1f25;
 
-  /* Azul Costa Rica */
-  --blue:         #2f6fed;
-  --blue-deep:    #0b3b8f;
-  --blue-soft:    rgba(47,111,237,0.14);
-  --blue-border:  rgba(47,111,237,0.34);
+  /* Acentos en escala de grises (los colores quedan solo para cuentas/categorías/etiquetas) */
+  --blue:         #e7e7ea;
+  --blue-deep:    #2a2a30;
+  --blue-soft:    rgba(255,255,255,0.08);
+  --blue-border:  rgba(255,255,255,0.18);
 
-  /* Rojo Costa Rica */
-  --red:          #ef3e48;
-  --red-deep:     #d4202a;
-  --red-soft:     rgba(239,62,72,0.13);
-  --red-border:   rgba(239,62,72,0.34);
+  --red:          #9a9aa1;
+  --red-deep:     #2a2a30;
+  --red-soft:     rgba(255,255,255,0.05);
+  --red-border:   rgba(255,255,255,0.16);
 
   /* Texto */
   --text:         #eef2fb;
@@ -88,14 +87,14 @@ input, select, textarea { font-family: inherit; }
 }
 .btn:active { transform: translateY(1px); }
 .btn-primary {
-  background: linear-gradient(180deg, var(--blue), var(--blue-deep));
-  color: #fff; box-shadow: 0 6px 18px rgba(47,111,237,0.32);
+  background: linear-gradient(180deg, #f3f3f5, #d9d9de);
+  color: #0c0c0f; box-shadow: 0 6px 18px rgba(0,0,0,0.45);
 }
-.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:hover { filter: brightness(1.05); }
 .btn-danger {
-  background: linear-gradient(180deg, var(--red), var(--red-deep));
-  color: #fff; box-shadow: 0 6px 18px rgba(239,62,72,0.30);
+  background: #26262b; color: #ededf2; border-color: var(--border-2);
 }
+.btn-danger:hover { background: #303036; }
 .btn-secondary {
   background: var(--bg-elevated); color: var(--text); border-color: var(--border-2);
 }
@@ -112,8 +111,8 @@ input, select, textarea { font-family: inherit; }
   padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
   background: var(--bg-elevated); color: var(--text-2); border: 1px solid var(--border);
 }
-.badge-blue { background: var(--blue-soft); color: #8fb6ff; border-color: var(--blue-border); }
-.badge-red  { background: var(--red-soft);  color: #ff9aa0; border-color: var(--red-border); }
+.badge-blue { background: var(--blue-soft); color: #ededf2; border-color: var(--blue-border); }
+.badge-red  { background: var(--red-soft);  color: #c9c9cf; border-color: var(--red-border); }
 
 /* ============ FORMS ============ */
 .field { margin-bottom: 14px; }
@@ -141,9 +140,9 @@ input, select, textarea { font-family: inherit; }
   flex: 1; padding: 9px; border-radius: 9px; border: none; background: transparent;
   color: var(--text-2); font-weight: 600; font-size: 13.5px; transition: all .15s;
 }
-.segmented button.active-blue { background: var(--blue); color: #fff; }
-.segmented button.active-red  { background: var(--red);  color: #fff; }
-.segmented button.active-gray { background: var(--bg-elevated); color: var(--text); }
+.segmented button.active-blue { background: #ededf2; color: #0c0c0f; }
+.segmented button.active-red  { background: #46464d; color: #fff; }
+.segmented button.active-gray { background: #2a2a30; color: var(--text); }
 
 /* ============ TABLE ============ */
 .data-table { width: 100%; border-collapse: collapse; }
@@ -157,8 +156,8 @@ input, select, textarea { font-family: inherit; }
 .data-table tbody tr:hover { background: var(--bg-elevated); }
 
 /* ============ MISC ============ */
-.amount-pos { color: #7fb0ff; font-weight: 700; }
-.amount-neg { color: #ff8a8f; font-weight: 700; }
+.amount-pos { color: #f4f4f6; font-weight: 700; }
+.amount-neg { color: #8b8b92; font-weight: 700; }
 .text-2 { color: var(--text-2); }
 .text-muted { color: var(--text-muted); }
 .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
@@ -197,7 +196,7 @@ input, select, textarea { font-family: inherit; }
   color: var(--text-2); font-weight: 600; font-size: 14.5px; margin-bottom: 2px; transition: all .14s;
 }
 .nav-link:hover { background: var(--bg-elevated); color: var(--text); }
-.nav-link.active { background: var(--blue-soft); color: #bcd3ff; border: 1px solid var(--blue-border); }
+.nav-link.active { background: var(--blue-soft); color: #ffffff; border: 1px solid var(--blue-border); }
 .nav-link .count { margin-left: auto; background: var(--red); color:#fff; font-size: 11px; font-weight:700; padding: 1px 7px; border-radius: 999px; }
 
 .main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; }

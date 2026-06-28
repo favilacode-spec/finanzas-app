@@ -46,12 +46,12 @@ export default function Insights() {
 
   return (
     <div>
-      <div className="card" style={{ background: 'linear-gradient(120deg, var(--blue-deep), #2a0a12)', marginBottom: 16 }}>
+      <div className="card" style={{ background: 'linear-gradient(120deg, #1a1a1f, #0c0c0f)', marginBottom: 16 }}>
         <div className="row" style={{ gap: 12 }}>
           <span className="icon-chip" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}><Sparkles size={20} /></span>
           <div>
             <h2 style={{ fontSize: 18 }}>Asesor financiero IA</h2>
-            <p className="text-2" style={{ fontSize: 13.5, color: '#cdd9f2' }}>Analizo tus finanzas del mes y te doy consejos personalizados. Gratis, con IA.</p>
+            <p className="text-2" style={{ fontSize: 13.5, color: '#bfbfc6' }}>Analizo tus finanzas del mes y te doy consejos personalizados. Gratis, con IA.</p>
           </div>
         </div>
         <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={generate} disabled={loading}>
@@ -59,7 +59,7 @@ export default function Insights() {
         </button>
       </div>
 
-      {err && <div className="card" style={{ borderColor: 'var(--red-border)', color: '#ff9aa0' }}>{err}</div>}
+      {err && <div className="card" style={{ borderColor: 'var(--red-border)', color: '#c9c9cf' }}>{err}</div>}
 
       {text && (
         <div className="card">

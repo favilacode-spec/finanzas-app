@@ -102,7 +102,7 @@ export default function Budgets() {
                   <div className="progress"><span style={{ width: pct + '%', background: over ? 'var(--red)' : 'var(--blue)' }} /></div>
                   <div className="row between" style={{ marginTop: 7, fontSize: 12.5 }}>
                     <span className="text-2">Gastado: {money(sp)}</span>
-                    <span style={{ color: over ? '#ff8a8f' : 'var(--text-muted)' }}>{over ? `−${money(sp - b.amount)}` : `${money(b.amount - sp)} libre`}</span>
+                    <span style={{ color: over ? '#86868c' : 'var(--text-muted)' }}>{over ? `−${money(sp - b.amount)}` : `${money(b.amount - sp)} libre`}</span>
                   </div>
                 </>
               )}

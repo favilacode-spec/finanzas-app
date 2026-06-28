@@ -4,18 +4,23 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { todayISO } from '../lib/format'
 
+const DRAFT_KEY = 'mb-tx-draft'
+const readDraft = () => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') } catch { return null } }
+const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* noop */ } }
+
 export default function TransactionModal({ onClose, onSaved, edit, defaultAccount }) {
   const { household, user } = useAuth()
+  const draft = edit ? null : readDraft()
   const [accounts, setAccounts] = useState([])
   const [categories, setCategories] = useState([])
-  const [type, setType] = useState(edit?.type || 'expense')
-  const [amount, setAmount] = useState(edit?.amount ? String(edit.amount) : '')
-  const [accountId, setAccountId] = useState(edit?.account_id || defaultAccount || '')
-  const [toAccount, setToAccount] = useState(edit?.transfer_account_id || '')
-  const [categoryId, setCategoryId] = useState(edit?.category_id || '')
-  const [date, setDate] = useState(edit?.occurred_on || todayISO())
-  const [payee, setPayee] = useState(edit?.payee || '')
-  const [note, setNote] = useState(edit?.note || '')
+  const [type, setType] = useState(edit?.type || draft?.type || 'expense')
+  const [amount, setAmount] = useState(edit?.amount ? String(edit.amount) : (draft?.amount || ''))
+  const [accountId, setAccountId] = useState(edit?.account_id || draft?.accountId || defaultAccount || '')
+  const [toAccount, setToAccount] = useState(edit?.transfer_account_id || draft?.toAccount || '')
+  const [categoryId, setCategoryId] = useState(edit?.category_id || draft?.categoryId || '')
+  const [date, setDate] = useState(edit?.occurred_on || draft?.date || todayISO())
+  const [payee, setPayee] = useState(edit?.payee || draft?.payee || '')
+  const [note, setNote] = useState(edit?.note || draft?.note || '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -26,6 +31,14 @@ export default function TransactionModal({ onClose, onSaved, edit, defaultAccoun
     supabase.from('categories').select('*').order('name')
       .then(({ data }) => setCategories(data || []))
   }, [household])
+
+  // Guardar borrador automáticamente (solo al crear), para no perder el avance si te cambiás de app
+  useEffect(() => {
+    if (edit) return
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ type, amount, accountId, toAccount, categoryId, date, payee, note }))
+    } catch { /* noop */ }
+  }, [edit, type, amount, accountId, toAccount, categoryId, date, payee, note])
 
   const cats = categories.filter((c) => c.kind === (type === 'income' ? 'income' : 'expense'))
 
@@ -58,6 +71,7 @@ export default function TransactionModal({ onClose, onSaved, edit, defaultAccoun
     }
     setBusy(false)
     if (error) return setErr(error.message)
+    if (!edit) clearDraft()
     onSaved?.()
     onClose()
   }

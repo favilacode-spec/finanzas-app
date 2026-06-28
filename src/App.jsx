@@ -5,7 +5,6 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Transactions from './pages/Transactions'
-import Budgets from './pages/Budgets'
 import Categories from './pages/Categories'
 import Goals from './pages/Goals'
 import Recurring from './pages/Recurring'
@@ -30,7 +29,6 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/cuentas" element={<Accounts />} />
         <Route path="/movimientos" element={<Transactions />} />
-        <Route path="/presupuestos" element={<Budgets />} />
         <Route path="/categorias" element={<Categories />} />
         <Route path="/metas" element={<Goals />} />
         <Route path="/recurrentes" element={<Recurring />} />

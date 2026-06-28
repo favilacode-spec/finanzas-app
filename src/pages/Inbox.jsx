@@ -18,13 +18,16 @@ export default function Inbox() {
   const load = async () => {
     setLoading(true)
     try {
-      const [p, a, c, r] = await Promise.all([
+      const [p, a, c, r, lab] = await Promise.all([
         supabase.from('pending_transactions').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('accounts').select('id,name').eq('archived', false),
+        supabase.from('accounts').select('id,name,label_id').eq('archived', false),
         supabase.from('categories').select('id,name,kind'),
         supabase.from('distribution_rules').select('*').order('sort'),
+        supabase.from('account_labels').select('id,name'),
       ])
-      setItems(p.data || []); setAccounts(a.data || []); setCats(c.data || []); setRules(r.data || [])
+      const lmap = {}; (lab.data || []).forEach((l) => { lmap[l.id] = l.name })
+      const accEnriched = (a.data || []).map((x) => ({ ...x, labelName: x.label_id ? lmap[x.label_id] : null }))
+      setItems(p.data || []); setAccounts(accEnriched); setCats(c.data || []); setRules(r.data || [])
       const d = {}
       ;(p.data || []).forEach((it) => {
         d[it.id] = {

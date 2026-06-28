@@ -4,11 +4,16 @@ import { Calculator } from 'lucide-react'
 
 // Muestra cuánto transferir a cada cuenta según las reglas de distribución.
 export default function DistributionModal({ amount, rules, accounts, onClose }) {
-  const accName = (id) => accounts.find((a) => a.id === id)?.name || 'Sin asignar'
-  const rows = (rules || []).map((r) => ({
-    ...r,
-    monto: Math.round(Number(amount) * Number(r.percent) / 100),
-  }))
+  const acc = (id) => accounts.find((a) => a.id === id)
+  const rows = (rules || []).map((r) => {
+    const a = acc(r.account_id)
+    return {
+      ...r,
+      title: a?.labelName || r.label,       // etiqueta de la cuenta si la tiene
+      accName: a?.name || 'Sin asignar',
+      monto: Math.round(Number(amount) * Number(r.percent) / 100),
+    }
+  })
   const totalPct = rows.reduce((s, r) => s + Number(r.percent), 0)
   const totalMonto = rows.reduce((s, r) => s + r.monto, 0)
 
@@ -33,8 +38,8 @@ export default function DistributionModal({ amount, rules, accounts, onClose }) 
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{r.label}</div>
-                    <div className="text-muted" style={{ fontSize: 12 }}>{accName(r.account_id)} · {r.percent}%</div>
+                    <div style={{ fontWeight: 600 }}>{r.title}</div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>{r.accName} · {r.percent}%</div>
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15 }}>{money(r.monto)}</td>
                 </tr>

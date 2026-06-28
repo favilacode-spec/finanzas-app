@@ -7,6 +7,26 @@ import Modal from '../components/Modal'
 
 const usd = (v) => '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
 
+// Estimado de referencia para Costa Rica SIN alojamiento (parás en casa de familia)
+const EST = [
+  { label: 'Comida (mezcla casa / sodas / restaurante)', perDay: 12 },
+  { label: 'Transporte local (bus, Uber/taxi)', perDay: 6 },
+  { label: 'Salidas, tours y entradas a parques', perDay: 7 },
+  { label: 'SIM / datos prepago (1 mes)', oneTime: 20 },
+  { label: 'Regalos / souvenirs', oneTime: 100 },
+  { label: 'Seguro de viaje (opcional)', oneTime: 50 },
+]
+const PACK = [
+  'Pasaporte y documentos (y copias)',
+  'Tarjeta + algo de efectivo en US$ y/o colones',
+  'Adaptador de enchufe: CR usa 120V tipo A/B (Paraguay 220V tipo C) — revisá que tus cargadores sean 100-240V',
+  'Protector solar y repelente de mosquitos',
+  'Ropa liviana + un abrigo para las noches frescas',
+  'Impermeable o paraguas liviano (puede llover)',
+  'Medicamentos personales',
+  'Calzado cómodo para caminar / sandalias',
+]
+
 export default function Trip() {
   const { household } = useAuth()
   const [trip, setTrip] = useState(null)
@@ -59,6 +79,26 @@ export default function Trip() {
   const perMonth = remaining / monthsLeft
 
   const both = (v) => `${usd(v)}  ·  ${money(v * fx)}`
+
+  // Estimado de referencia (según días del viaje)
+  const estRows = EST.map((e) => ({
+    label: e.label,
+    detail: e.perDay ? `$${e.perDay}/día` : 'único',
+    amount: e.perDay ? e.perDay * Number(trip.days || 0) : e.oneTime,
+  }))
+  const estSub = estRows.reduce((s, r) => s + r.amount, 0)
+  const estExtra = Math.round(estSub * 0.1)
+  const estTotal = estSub + estExtra
+
+  const usarEstimado = async () => {
+    const perDaySum = EST.filter((e) => e.perDay).reduce((s, e) => s + e.perDay, 0)
+    const oneTimeSum = EST.filter((e) => e.oneTime).reduce((s, e) => s + e.oneTime, 0)
+    await supabase.from('trips').update({
+      daily_budget_usd: perDaySum,
+      other_costs_usd: oneTimeSum + estExtra,
+    }).eq('id', trip.id)
+    load()
+  }
 
   const aiAdvice = async () => {
     setAiBusy(true); setAi('')
@@ -131,6 +171,48 @@ export default function Trip() {
           <div className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>
             Te falta {usd(remaining)} en {monthsLeft} {monthsLeft === 1 ? 'mes' : 'meses'}
           </div>
+        </div>
+      </div>
+
+      {/* Estimado de referencia (sin hotel) */}
+      <div className="grid grid-2" style={{ alignItems: 'start', marginBottom: 16 }}>
+        <div className="card card-pad-0">
+          <div style={{ padding: '14px 18px' }} className="row between">
+            <div className="card-title" style={{ margin: 0 }}>Estimado sugerido · {trip.days} días (sin hotel)</div>
+            <span className="text-2" style={{ fontSize: 13 }}>{usd(estTotal)}</span>
+          </div>
+          <table className="data-table">
+            <tbody>
+              {estRows.map((r, i) => (
+                <tr key={i}>
+                  <td><div style={{ fontWeight: 600 }}>{r.label}</div><div className="text-muted" style={{ fontSize: 11.5 }}>{r.detail}</div></td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{usd(r.amount)}<div className="text-muted" style={{ fontSize: 11 }}>{money(r.amount * fx)}</div></td>
+                </tr>
+              ))}
+              <tr>
+                <td className="text-2">Imprevistos (10%)</td>
+                <td style={{ textAlign: 'right' }} className="text-2">{usd(estExtra)}</td>
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 700 }}>Total estimado</td>
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>{usd(estTotal)}<div className="text-muted" style={{ fontSize: 11 }}>{money(estTotal * fx)}</div></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ padding: '12px 18px' }}>
+            <button className="btn btn-secondary btn-sm btn-block" onClick={usarEstimado}>Usar este estimado como base del presupuesto</button>
+            <p className="text-muted" style={{ fontSize: 11, marginTop: 8 }}>Referencia con precios típicos de Costa Rica (dic.). Ajustá a tu estilo; si alquilás auto sumá ~US$45/día.</p>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Qué llevar</div>
+          {PACK.map((p, i) => (
+            <div key={i} className="row" style={{ gap: 10, padding: '7px 0', borderBottom: i < PACK.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--text-muted)', marginTop: 2 }}>•</span>
+              <span style={{ fontSize: 13.5 }}>{p}</span>
+            </div>
+          ))}
         </div>
       </div>
 

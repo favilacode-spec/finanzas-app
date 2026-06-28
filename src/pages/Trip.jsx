@@ -22,7 +22,7 @@ export default function Trip() {
     let t = trips?.[0]
     if (!t) {
       const { data } = await supabase.from('trips').insert({
-        household_id: household.id, name: 'Costa Rica · Diciembre', days: 30, fx_rate: 7300,
+        household_id: household.id, name: 'Costa Rica · Diciembre', days: 30, fx_rate: 6650,
         start_date: '2026-12-01', end_date: '2026-12-31',
       }).select().single()
       t = data
@@ -36,7 +36,7 @@ export default function Trip() {
 
   if (loading || !trip) return <div style={{ padding: 40, display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>
 
-  const fx = Number(trip.fx_rate) || 7300
+  const fx = Number(trip.fx_rate) || 6650
   const itemsTotal = items.reduce((s, i) => s + Number(i.cost_usd || 0), 0)
   const dailyTotal = Number(trip.daily_budget_usd || 0) * Number(trip.days || 0)
   const budget = dailyTotal + Number(trip.other_costs_usd || 0) + itemsTotal
@@ -150,7 +150,7 @@ export default function Trip() {
 function TripConfig({ trip, onClose, onSaved }) {
   const [f, setF] = useState({
     name: trip.name || '', days: trip.days || 30, daily: trip.daily_budget_usd || '', other: trip.other_costs_usd || '',
-    saved: trip.current_saved_usd || '', fx: trip.fx_rate || 7300, start: trip.start_date || '', end: trip.end_date || '',
+    saved: trip.current_saved_usd || '', fx: trip.fx_rate || 6650, start: trip.start_date || '', end: trip.end_date || '',
   })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
@@ -160,7 +160,7 @@ function TripConfig({ trip, onClose, onSaved }) {
     await supabase.from('trips').update({
       name: f.name.trim() || 'Viaje', days: parseInt(f.days, 10) || 0,
       daily_budget_usd: numf(f.daily), other_costs_usd: numf(f.other), current_saved_usd: numf(f.saved),
-      fx_rate: numf(f.fx) || 7300, start_date: f.start || null, end_date: f.end || null,
+      fx_rate: numf(f.fx) || 6650, start_date: f.start || null, end_date: f.end || null,
     }).eq('id', trip.id)
     setBusy(false); onSaved(); onClose()
   }
@@ -180,7 +180,7 @@ function TripConfig({ trip, onClose, onSaved }) {
           <div className="field"><label>Otros costos US$ (pasajes, hotel)</label><input className="form-input" inputMode="decimal" value={f.other} onChange={(e) => set('other', e.target.value)} placeholder="0" /></div>
           <div className="field"><label>Ya ahorrado (US$)</label><input className="form-input" inputMode="decimal" value={f.saved} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>
         </div>
-        <div className="field"><label>Tipo de cambio (₲ por US$)</label><input className="form-input" inputMode="numeric" value={f.fx} onChange={(e) => set('fx', e.target.value)} placeholder="7300" /></div>
+        <div className="field"><label>Tipo de cambio (₲ por US$)</label><input className="form-input" inputMode="numeric" value={f.fx} onChange={(e) => set('fx', e.target.value)} placeholder="6650" /></div>
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       </form>
     </Modal>

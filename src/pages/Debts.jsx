@@ -112,7 +112,6 @@ export default function Debts() {
                       </div>
                       <div className="text-muted" style={{ fontSize: 12 }}>
                         Saldo {money(d.current_balance)} de {money(d.total_amount)}
-                        {Number(d.interest_rate) > 0 ? ` · ${d.interest_rate}% interés` : ''}
                         {Number(d.min_payment) > 0 ? ` · mín. ${money(d.min_payment)}` : ''}
                       </div>
                     </div>
@@ -147,7 +146,6 @@ function DebtForm({ debt, household, onClose, onSaved }) {
   const [name, setName] = useState(debt.name || '')
   const [total, setTotal] = useState(debt.total_amount ? String(debt.total_amount) : '')
   const [balance, setBalance] = useState(debt.current_balance != null && debt.id ? String(debt.current_balance) : (debt.total_amount ? String(debt.total_amount) : ''))
-  const [interest, setInterest] = useState(debt.interest_rate ? String(debt.interest_rate) : '')
   const [minPay, setMinPay] = useState(debt.min_payment ? String(debt.min_payment) : '')
   const [busy, setBusy] = useState(false)
   const num = (v) => parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0
@@ -159,7 +157,7 @@ function DebtForm({ debt, household, onClose, onSaved }) {
     const payload = {
       household_id: household.id, name: name.trim(),
       total_amount: num(total), current_balance: isNew ? (num(balance) || num(total)) : num(balance),
-      interest_rate: parseFloat(String(interest).replace(',', '.')) || 0, min_payment: num(minPay),
+      interest_rate: 0, min_payment: num(minPay),
     }
     if (isNew) await supabase.from('debts').insert(payload)
     else await supabase.from('debts').update(payload).eq('id', debt.id)
@@ -174,10 +172,7 @@ function DebtForm({ debt, household, onClose, onSaved }) {
           <div className="field"><label>Monto total (₲)</label><input className="form-input" inputMode="numeric" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="0" /></div>
           <div className="field"><label>Saldo pendiente (₲)</label><input className="form-input" inputMode="numeric" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="0" /></div>
         </div>
-        <div className="grid grid-2" style={{ gap: 12 }}>
-          <div className="field"><label>Interés anual (%)</label><input className="form-input" inputMode="decimal" value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="0" /></div>
-          <div className="field"><label>Pago mínimo (₲)</label><input className="form-input" inputMode="numeric" value={minPay} onChange={(e) => setMinPay(e.target.value)} placeholder="0" /></div>
-        </div>
+        <div className="field"><label>Pago mínimo mensual (₲, opcional)</label><input className="form-input" inputMode="numeric" value={minPay} onChange={(e) => setMinPay(e.target.value)} placeholder="0" /></div>
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       </form>
     </Modal>

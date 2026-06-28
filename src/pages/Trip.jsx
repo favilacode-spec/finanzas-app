@@ -97,6 +97,25 @@ export default function Trip() {
         </div>
       </div>
 
+      {/* Ahorrado para el viaje — destacado */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="row between wrap" style={{ gap: 8 }}>
+          <div className="stat-label">Ahorrado para el viaje</div>
+          {savedAcc && <span className="badge">Cuenta: {savedAcc.name}</span>}
+        </div>
+        <div className="stat-value" style={{ fontSize: 30 }}>{usd(saved)}</div>
+        <div className="text-2" style={{ fontSize: 14 }}>{money(saved * fx)}{savedAcc ? `  ·  saldo real ${money(savedAccBal)}` : ''}</div>
+        {budget > 0 && (
+          <>
+            <div className="progress" style={{ marginTop: 12 }}><span style={{ width: Math.min(100, (saved / budget) * 100) + '%', background: '#e7e7ea' }} /></div>
+            <div className="row between" style={{ marginTop: 7, fontSize: 12.5 }}>
+              <span className="text-2">{((saved / budget) * 100).toFixed(0)}% del presupuesto</span>
+              <span className="text-muted">Meta: {usd(budget)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="stat-label">Presupuesto total del viaje</div>
@@ -110,13 +129,8 @@ export default function Trip() {
           <div className="stat-label">Cuánto ahorrar</div>
           <div className="stat-value" style={{ fontSize: 24 }}>{both(perMonth)}<span className="text-muted" style={{ fontSize: 14, fontWeight: 500 }}> /mes</span></div>
           <div className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>
-            Falta {usd(remaining)} en {monthsLeft} {monthsLeft === 1 ? 'mes' : 'meses'} (ya tenés {usd(saved)})
+            Te falta {usd(remaining)} en {monthsLeft} {monthsLeft === 1 ? 'mes' : 'meses'}
           </div>
-          {savedAcc && (
-            <div className="text-muted" style={{ fontSize: 11.5, marginTop: 4 }}>
-              Ahorro tomado de “{savedAcc.name}”: {money(savedAccBal)} → {usd(saved)}
-            </div>
-          )}
         </div>
       </div>
 

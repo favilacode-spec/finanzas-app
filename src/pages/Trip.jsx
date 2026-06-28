@@ -11,6 +11,8 @@ export default function Trip() {
   const { household } = useAuth()
   const [trip, setTrip] = useState(null)
   const [items, setItems] = useState([])
+  const [accounts, setAccounts] = useState([])
+  const [balances, setBalances] = useState([])
   const [loading, setLoading] = useState(true)
   const [cfg, setCfg] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -28,8 +30,12 @@ export default function Trip() {
       t = data
     }
     setTrip(t)
-    const { data: its } = await supabase.from('trip_items').select('*').eq('trip_id', t.id).order('created_at')
-    setItems(its || [])
+    const [{ data: its }, { data: accs }, { data: bals }] = await Promise.all([
+      supabase.from('trip_items').select('*').eq('trip_id', t.id).order('created_at'),
+      supabase.from('accounts').select('id,name').eq('archived', false).order('name'),
+      supabase.from('account_balances').select('*'),
+    ])
+    setItems(its || []); setAccounts(accs || []); setBalances(bals || [])
     setLoading(false)
   }
   useEffect(() => { if (household) load() }, [household])
@@ -40,7 +46,10 @@ export default function Trip() {
   const itemsTotal = items.reduce((s, i) => s + Number(i.cost_usd || 0), 0)
   const dailyTotal = Number(trip.daily_budget_usd || 0) * Number(trip.days || 0)
   const budget = dailyTotal + Number(trip.other_costs_usd || 0) + itemsTotal
-  const saved = Number(trip.current_saved_usd || 0)
+  // Si hay cuenta de ahorro vinculada, el ahorro = saldo de esa cuenta convertido a USD
+  const savedAcc = trip.saved_account_id ? accounts.find((a) => a.id === trip.saved_account_id) : null
+  const savedAccBal = savedAcc ? (balances.find((b) => b.account_id === savedAcc.id)?.balance || 0) : null
+  const saved = savedAcc ? (savedAccBal / fx) : Number(trip.current_saved_usd || 0)
   const remaining = Math.max(0, budget - saved)
 
   // meses hasta el viaje
@@ -103,6 +112,11 @@ export default function Trip() {
           <div className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>
             Falta {usd(remaining)} en {monthsLeft} {monthsLeft === 1 ? 'mes' : 'meses'} (ya tenés {usd(saved)})
           </div>
+          {savedAcc && (
+            <div className="text-muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+              Ahorro tomado de “{savedAcc.name}”: {money(savedAccBal)} → {usd(saved)}
+            </div>
+          )}
         </div>
       </div>
 
@@ -141,16 +155,17 @@ export default function Trip() {
         ))}
       </div>
 
-      {cfg && <TripConfig trip={trip} onClose={() => setCfg(false)} onSaved={load} />}
+      {cfg && <TripConfig trip={trip} accounts={accounts} onClose={() => setCfg(false)} onSaved={load} />}
       {addOpen && <ItemForm trip={trip} household={household} onClose={() => setAddOpen(false)} onSaved={load} />}
     </div>
   )
 }
 
-function TripConfig({ trip, onClose, onSaved }) {
+function TripConfig({ trip, accounts = [], onClose, onSaved }) {
   const [f, setF] = useState({
     name: trip.name || '', days: trip.days || 30, daily: trip.daily_budget_usd || '', other: trip.other_costs_usd || '',
     saved: trip.current_saved_usd || '', fx: trip.fx_rate || 6650, start: trip.start_date || '', end: trip.end_date || '',
+    savedAccount: trip.saved_account_id || '',
   })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
@@ -161,6 +176,7 @@ function TripConfig({ trip, onClose, onSaved }) {
       name: f.name.trim() || 'Viaje', days: parseInt(f.days, 10) || 0,
       daily_budget_usd: numf(f.daily), other_costs_usd: numf(f.other), current_saved_usd: numf(f.saved),
       fx_rate: numf(f.fx) || 6650, start_date: f.start || null, end_date: f.end || null,
+      saved_account_id: f.savedAccount || null,
     }).eq('id', trip.id)
     setBusy(false); onSaved(); onClose()
   }
@@ -179,6 +195,16 @@ function TripConfig({ trip, onClose, onSaved }) {
         <div className="grid grid-2" style={{ gap: 12 }}>
           <div className="field"><label>Otros costos US$ (pasajes, hotel)</label><input className="form-input" inputMode="decimal" value={f.other} onChange={(e) => set('other', e.target.value)} placeholder="0" /></div>
           <div className="field"><label>Ya ahorrado (US$)</label><input className="form-input" inputMode="decimal" value={f.saved} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>
+        </div>
+        <div className="field">
+          <label>Cuenta de ahorro del viaje</label>
+          <select className="form-select" value={f.savedAccount} onChange={(e) => set('savedAccount', e.target.value)}>
+            <option value="">Manual (uso "Ya ahorrado")</option>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <div className="text-muted" style={{ fontSize: 11.5, marginTop: 5 }}>
+            {f.savedAccount ? 'El ahorro del viaje se toma automáticamente del saldo de esta cuenta (convertido a US$).' : 'Si elegís una cuenta, su saldo cuenta como lo ahorrado para el viaje.'}
+          </div>
         </div>
         <div className="field"><label>Tipo de cambio (₲ por US$)</label><input className="form-input" inputMode="numeric" value={f.fx} onChange={(e) => set('fx', e.target.value)} placeholder="6650" /></div>
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>

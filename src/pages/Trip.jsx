@@ -310,8 +310,10 @@ function TripConfig({ trip, accounts = [], onClose, onSaved }) {
 }
 
 function ItemForm({ trip, household, onClose, onSaved }) {
+  const fx = Number(trip.fx_rate) || 6650
   const [name, setName] = useState('')
   const [cost, setCost] = useState('')
+  const [curr, setCurr] = useState('usd') // 'usd' | 'pyg'
   const [link, setLink] = useState('')
   const [image, setImage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -337,9 +339,11 @@ function ItemForm({ trip, household, onClose, onSaved }) {
     e.preventDefault()
     if (!name.trim()) return
     setBusy(true)
+    const raw = parseFloat(String(cost).replace(/[^0-9.]/g, '')) || 0
+    const costUsd = curr === 'pyg' ? (raw / fx) : raw
     await supabase.from('trip_items').insert({
       trip_id: trip.id, household_id: household.id, name: name.trim(),
-      cost_usd: parseFloat(String(cost).replace(/[^0-9.]/g, '')) || 0, link: link || null, image: image || null,
+      cost_usd: costUsd, link: link || null, image: image || null,
     })
     setBusy(false); onSaved(); onClose()
   }
@@ -355,7 +359,21 @@ function ItemForm({ trip, household, onClose, onSaved }) {
           <div className="text-muted" style={{ fontSize: 12.5 }}>Tocá para sacar una foto o elegir del rollo (opcional).</div>
         </div>
         <div className="field"><label>Qué es</label><input className="form-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Zapatillas Nike" autoFocus /></div>
-        <div className="field"><label>Costo (US$)</label><input className="form-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" /></div>
+        <div className="field">
+          <label>Costo</label>
+          <div className="segmented" style={{ marginBottom: 8 }}>
+            <button type="button" className={curr === 'usd' ? 'active-blue' : ''} onClick={() => setCurr('usd')}>US$</button>
+            <button type="button" className={curr === 'pyg' ? 'active-blue' : ''} onClick={() => setCurr('pyg')}>Guaraníes ₲</button>
+          </div>
+          <input className="form-input" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={curr === 'usd' ? '0 (en dólares)' : '0 (en guaraníes)'} />
+          {cost && (
+            <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+              {curr === 'usd'
+                ? `≈ ${money((parseFloat(String(cost).replace(/[^0-9.]/g, '')) || 0) * fx)}`
+                : `≈ ${usd((parseFloat(String(cost).replace(/[^0-9.]/g, '')) || 0) / fx)}`}
+            </div>
+          )}
+        </div>
         <div className="field"><label>Link del producto (opcional)</label><input className="form-input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://…" /></div>
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Agregar'}</button>
       </form>

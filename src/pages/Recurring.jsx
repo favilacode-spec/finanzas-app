@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext'
 import { money, fmtDate, todayISO } from '../lib/format'
 import Modal from '../components/Modal'
 
-const FREQ = { daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual', yearly: 'Anual' }
+const FREQ = { daily: 'Diario', weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual', yearly: 'Anual' }
 const monthlyEq = (r) => {
   const a = Number(r.amount || 0)
   if (r.frequency === 'daily') return a * 30
   if (r.frequency === 'weekly') return a * 4.33
+  if (r.frequency === 'biweekly') return a * 2
   if (r.frequency === 'yearly') return a / 12
   return a
 }
@@ -18,6 +19,7 @@ function advance(dateStr, freq) {
   const d = new Date(dateStr)
   if (freq === 'daily') d.setDate(d.getDate() + 1)
   else if (freq === 'weekly') d.setDate(d.getDate() + 7)
+  else if (freq === 'biweekly') d.setDate(d.getDate() + 15)
   else if (freq === 'yearly') d.setFullYear(d.getFullYear() + 1)
   else d.setMonth(d.getMonth() + 1)
   return d.toISOString().slice(0, 10)

@@ -17,8 +17,9 @@ export default function Debts() {
   const load = async () => {
     setLoading(true)
     const { data } = await supabase.from('debts').select('*').eq('paid_off', false)
+    // El orden lo manda 'sort' (manual). Como desempate, saldo más chico primero (snowball).
     const sorted = (data || []).sort((a, b) =>
-      (b.priority - a.priority) || (a.sort - b.sort) || (Number(a.current_balance) - Number(b.current_balance)))
+      (a.sort - b.sort) || (Number(a.current_balance) - Number(b.current_balance)))
     setDebts(sorted)
     setLoading(false)
   }
@@ -27,24 +28,35 @@ export default function Debts() {
   const total = debts.reduce((s, d) => s + Number(d.current_balance), 0)
   const totalMin = debts.reduce((s, d) => s + Number(d.min_payment || 0), 0)
 
-  const togglePriority = async (d) => { await supabase.from('debts').update({ priority: !d.priority }).eq('id', d.id); load() }
+  // Reasigna sort 0..n al nuevo orden y recarga
+  const reindex = async (arr) => {
+    await Promise.all(arr.map((d, idx) => supabase.from('debts').update({ sort: idx }).eq('id', d.id)))
+    load()
+  }
+
+  const togglePriority = async (d) => {
+    const next = !d.priority
+    await supabase.from('debts').update({ priority: next }).eq('id', d.id)
+    if (next) {
+      // al marcar prioridad, mandarla arriba de todo
+      const arr = [{ ...d, priority: true }, ...debts.filter((x) => x.id !== d.id)]
+      reindex(arr)
+    } else load()
+  }
 
   const move = async (i, dir) => {
     const j = i + dir
     if (j < 0 || j >= debts.length) return
-    const a = debts[i], b = debts[j]
-    await Promise.all([
-      supabase.from('debts').update({ sort: b.sort ?? j }).eq('id', a.id),
-      supabase.from('debts').update({ sort: a.sort ?? i }).eq('id', b.id),
-    ])
-    load()
+    const arr = [...debts]
+    const [x] = arr.splice(i, 1)
+    arr.splice(j, 0, x)
+    reindex(arr)
   }
 
   const snowball = async () => {
-    // reordenar: prioridad arriba, luego saldo más chico primero
+    // prioridad arriba, luego saldo más chico primero
     const order = [...debts].sort((a, b) => (b.priority - a.priority) || (Number(a.current_balance) - Number(b.current_balance)))
-    await Promise.all(order.map((d, idx) => supabase.from('debts').update({ sort: idx }).eq('id', d.id)))
-    load()
+    reindex(order)
   }
 
   const del = async (id) => { if (confirm('¿Eliminar esta deuda?')) { await supabase.from('debts').delete().eq('id', id); load() } }

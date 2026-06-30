@@ -27,6 +27,15 @@ export default function Debts() {
 
   const total = debts.reduce((s, d) => s + Number(d.current_balance), 0)
   const totalMin = debts.reduce((s, d) => s + Number(d.min_payment || 0), 0)
+  // Meses para pagar (sin intereses)
+  const payoffMonths = (bal, min) => (Number(min) > 0 ? Math.ceil(Number(bal) / Number(min)) : null)
+  const overallMonths = totalMin > 0 ? Math.ceil(total / totalMin) : null
+  const fmtMonths = (m) => {
+    if (m == null) return null
+    if (m < 12) return `${m} ${m === 1 ? 'mes' : 'meses'}`
+    const y = Math.floor(m / 12), mm = m % 12
+    return `${y} ${y === 1 ? 'año' : 'años'}${mm ? ` ${mm} m` : ''} · ${m} meses`
+  }
 
   // Reasigna sort 0..n al nuevo orden y recarga
   const reindex = async (arr) => {
@@ -90,6 +99,11 @@ export default function Debts() {
             <div className="stat-label">Deuda total</div>
             <div className="stat-value" style={{ fontSize: 30 }}>{money(total)}</div>
             <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>{debts.length} deudas · pago mínimo mensual: {money(totalMin)}</div>
+            {overallMonths != null && (
+              <div className="text-2" style={{ fontSize: 12.5, marginTop: 6 }}>
+                🏁 Pagando los mínimos (bola de nieve): salís en ≈ <b>{fmtMonths(overallMonths)}</b> <span className="text-muted">(sin intereses)</span>
+              </div>
+            )}
           </div>
           <button className="btn btn-primary" onClick={() => setForm({})}><Plus size={18} /> Nueva deuda</button>
         </div>
@@ -140,6 +154,11 @@ export default function Debts() {
                 <div className="row between" style={{ marginTop: 10 }}>
                   <span className="text-muted" style={{ fontSize: 12.5 }}>{pct.toFixed(0)}% pagado</span>
                   <button className="btn btn-secondary btn-sm" onClick={() => setPayFor(d)}><CheckCircle2 size={15} /> Registrar pago</button>
+                </div>
+                <div className="text-2" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  {payoffMonths(d.current_balance, d.min_payment) != null
+                    ? <>⏱️ Con su pago mínimo: ≈ <b>{fmtMonths(payoffMonths(d.current_balance, d.min_payment))}</b></>
+                    : <span className="text-muted">Definí el pago mínimo para estimar los meses.</span>}
                 </div>
               </div>
             )

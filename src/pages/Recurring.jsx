@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Pencil, Repeat, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { Plus, Trash2, Pencil, Repeat, CheckCircle2, ShieldCheck, CreditCard, PieChart } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, fmtDate, todayISO } from '../lib/format'
@@ -33,15 +33,21 @@ export default function Recurring() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(null)
   const [fundMonths, setFundMonths] = useState(3)
+  const [view, setView] = useState('recurrentes') // 'recurrentes' | 'mensuales'
+  const [budgets, setBudgets] = useState([])
+  const [debts, setDebts] = useState([])
 
   const load = async () => {
     setLoading(true)
-    const [r, a, c] = await Promise.all([
+    const [r, a, c, b, dbt] = await Promise.all([
       supabase.from('recurring_transactions').select('*').order('next_date'),
       supabase.from('accounts').select('id,name').eq('archived', false),
       supabase.from('categories').select('id,name,kind'),
+      supabase.from('budgets').select('*'),
+      supabase.from('debts').select('current_balance,min_payment').eq('paid_off', false),
     ])
     setItems(r.data || []); setAccounts(a.data || []); setCats(c.data || [])
+    setBudgets(b.data || []); setDebts(dbt.data || [])
     setLoading(false)
   }
   useEffect(() => { if (household) load() }, [household])
@@ -67,8 +73,78 @@ export default function Recurring() {
   const monthlyFund = fundItems.reduce((s, r) => s + monthlyEq(r), 0)
   const fundTarget = monthlyFund * fundMonths
 
+  // ----- Vista "Gastos mensuales": recurrentes + presupuestos (no repetidos) + deudas -----
+  const recExp = items.filter((r) => r.type === 'expense')
+  const recRows = recExp.map((r) => ({ id: r.id, name: r.payee || catName(r.category_id) || 'Recurrente', sub: `${FREQ[r.frequency]}${catName(r.category_id) ? ' · ' + catName(r.category_id) : ''}`, amount: monthlyEq(r) }))
+  const recCatIds = new Set(recExp.map((r) => r.category_id).filter(Boolean))
+  const budgetRows = budgets.filter((b) => b.category_id && !recCatIds.has(b.category_id)).map((b) => ({ id: b.id, name: catName(b.category_id) || 'Presupuesto', amount: Number(b.amount) }))
+  const debtTotalBal = debts.reduce((s, d) => s + Number(d.current_balance), 0)
+  const debtMin = debts.reduce((s, d) => s + Number(d.min_payment || 0), 0)
+  const debtMonthly = debts.length ? Math.max(debtMin, Math.ceil(debtTotalBal / 17)) : 0
+  const recSum = recRows.reduce((s, x) => s + x.amount, 0)
+  const budgetSum = budgetRows.reduce((s, x) => s + x.amount, 0)
+  const grandTotal = recSum + budgetSum + debtMonthly
+
   return (
     <div>
+      <div className="segmented" style={{ maxWidth: 380, marginBottom: 16 }}>
+        <button className={view === 'recurrentes' ? 'active-blue' : ''} onClick={() => setView('recurrentes')}>Recurrentes</button>
+        <button className={view === 'mensuales' ? 'active-blue' : ''} onClick={() => setView('mensuales')}>Gastos mensuales</button>
+      </div>
+
+      {view === 'mensuales' ? (
+        <div>
+          <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(120deg, #1a1a1f, #0c0c0f)' }}>
+            <div className="stat-label">Gasto mensual general (todo)</div>
+            <div className="stat-value" style={{ fontSize: 32 }}>{money(grandTotal)}</div>
+            <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+              recurrentes {money(recSum)} + presupuestos {money(budgetSum)} + deudas {money(debtMonthly)}
+            </div>
+          </div>
+
+          <div className="card card-pad-0" style={{ marginBottom: 16 }}>
+            <div style={{ padding: '14px 18px' }} className="row between">
+              <div className="card-title" style={{ margin: 0 }}><Repeat size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Recurrentes</div>
+              <span className="text-2" style={{ fontSize: 13 }}>{money(recSum)}/mes</span>
+            </div>
+            {recRows.length === 0 ? <div className="empty-state" style={{ padding: 24 }}>Sin gastos recurrentes.</div>
+              : recRows.map((x) => (
+                <div key={x.id} className="row between" style={{ padding: '11px 18px', borderTop: '1px solid var(--border)' }}>
+                  <div><div style={{ fontWeight: 600 }}>{x.name}</div><div className="text-muted" style={{ fontSize: 12 }}>{x.sub}</div></div>
+                  <span style={{ fontWeight: 700 }}>{money(x.amount)}</span>
+                </div>
+              ))}
+          </div>
+
+          <div className="card card-pad-0" style={{ marginBottom: 16 }}>
+            <div style={{ padding: '14px 18px' }} className="row between">
+              <div className="card-title" style={{ margin: 0 }}><PieChart size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Presupuestos (que no son recurrentes)</div>
+              <span className="text-2" style={{ fontSize: 13 }}>{money(budgetSum)}/mes</span>
+            </div>
+            {budgetRows.length === 0 ? <div className="empty-state" style={{ padding: 24 }}>Sin presupuestos extra. Definilos en Presupuestos.</div>
+              : budgetRows.map((x) => (
+                <div key={x.id} className="row between" style={{ padding: '11px 18px', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontWeight: 600 }}>{x.name}</span>
+                  <span style={{ fontWeight: 700 }}>{money(x.amount)}</span>
+                </div>
+              ))}
+          </div>
+
+          {debts.length > 0 && (
+            <div className="card card-pad-0">
+              <div style={{ padding: '14px 18px' }} className="row between">
+                <div className="card-title" style={{ margin: 0 }}><CreditCard size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Pago de deudas (plan snowball)</div>
+                <span className="text-2" style={{ fontSize: 13 }}>{money(debtMonthly)}/mes</span>
+              </div>
+              <div className="row between" style={{ padding: '11px 18px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontWeight: 600 }}>Total mensual del plan</span>
+                <span style={{ fontWeight: 700 }}>{money(debtMonthly)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+      <div>
       <div className="row between" style={{ marginBottom: 16 }}>
         <p className="text-2">Movimientos que se repiten. Registralos con un toque cuando toca.</p>
         <button className="btn btn-primary" onClick={() => setForm({})}><Plus size={18} /> Nuevo</button>
@@ -135,6 +211,8 @@ export default function Recurring() {
             )
           })}
         </div>
+      )}
+      </div>
       )}
 
       {form && <RecForm rec={form} household={household} accounts={accounts} cats={cats} onClose={() => setForm(null)} onSaved={load} />}

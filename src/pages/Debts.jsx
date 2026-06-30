@@ -185,7 +185,7 @@ export default function Debts() {
           </div>
 
           <table className="data-table">
-            <thead><tr><th>#</th><th>Deuda</th><th style={{ textAlign: 'right' }}>Saldo</th><th style={{ textAlign: 'right' }}>Mín./mes</th><th style={{ textAlign: 'right' }}>Libre en</th></tr></thead>
+            <thead><tr><th>#</th><th>Deuda</th><th style={{ textAlign: 'right' }}>Saldo</th><th style={{ textAlign: 'right' }}>Mín./mes</th><th style={{ textAlign: 'right' }}>Tarda</th><th style={{ textAlign: 'right' }}>Libre en</th></tr></thead>
             <tbody>
               {debts.map((d, i) => (
                 <tr key={d.id}>
@@ -193,7 +193,8 @@ export default function Debts() {
                   <td style={{ fontWeight: 600 }}>{d.name}</td>
                   <td style={{ textAlign: 'right' }}>{money(d.current_balance)}</td>
                   <td style={{ textAlign: 'right' }} className="text-2">{money(d.min_payment)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, textTransform: 'capitalize' }}>{plan.freeAt[i] ? addMonths(plan.freeAt[i]) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{plan.freeAt[i] ? `${plan.freeAt[i]} ${plan.freeAt[i] === 1 ? 'mes' : 'meses'}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, textTransform: 'capitalize' }} className="text-2">{plan.freeAt[i] ? addMonths(plan.freeAt[i]) : '—'}</td>
                 </tr>
               ))}
             </tbody>

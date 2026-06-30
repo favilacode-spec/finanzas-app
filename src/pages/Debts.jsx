@@ -42,8 +42,6 @@ export default function Debts() {
   const [payFor, setPayFor] = useState(null)
   const [ai, setAi] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
-  const [targetMonth, setTargetMonth] = useState('2027-12')
-  const [extra, setExtra] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -68,15 +66,9 @@ export default function Debts() {
     return `${y} ${y === 1 ? 'año' : 'años'}${mm ? ` ${mm} m` : ''} · ${m} meses`
   }
 
-  // Plan: pagás los mínimos + un extra editable que va al snowball
-  const monthsToTarget = (() => {
-    const [y, mo] = targetMonth.split('-').map(Number)
-    const now = new Date()
-    return Math.max(1, (y - now.getFullYear()) * 12 + ((mo - 1) - now.getMonth()))
-  })()
-  const suggestedExtra = debts.length ? Math.max(0, suggestBudget(debts, monthsToTarget) - totalMin) : 0
-  const effExtra = extra === '' ? suggestedExtra : (parseInt(String(extra).replace(/[^0-9]/g, ''), 10) || 0)
-  const monthlyBudget = totalMin + effExtra
+  // Plan: pagás los mínimos + el extra hasta llegar a ₲4.000.000 en total por mes
+  const monthlyBudget = Math.max(totalMin, 4000000) // total fijo: ₲4.000.000
+  const effExtra = monthlyBudget - totalMin
   const sim = debts.length ? simulateSnowball(debts, monthlyBudget) : null
 
   // Reasigna sort 0..n al nuevo orden y recarga
@@ -164,23 +156,12 @@ export default function Debts() {
       {/* Plan bola de nieve con extra editable */}
       {sim && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title">Plan: mínimos + un extra por mes</div>
+          <div className="card-title">Plan para salir de deudas</div>
 
-          <div className="grid grid-2" style={{ gap: 12, marginBottom: 14, alignItems: 'end' }}>
-            <div className="field" style={{ margin: 0 }}>
-              <label>Extra por mes (₲) — va al snowball</label>
-              <input className="form-input" inputMode="numeric" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={String(suggestedExtra)} style={{ fontSize: 18, fontWeight: 700 }} />
-              <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span className="text-muted" style={{ fontSize: 12 }}>Sugerido para</span>
-                <input className="form-input" type="month" style={{ width: 130, padding: '5px 8px', fontSize: 12 }} value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)} />
-                <button type="button" className="badge" style={{ cursor: 'pointer' }} onClick={() => setExtra(String(suggestedExtra))}>Usar {money(suggestedExtra)}</button>
-              </div>
-            </div>
-            <div className="card" style={{ background: 'var(--bg-base)' }}>
-              <div className="stat-label">Total a pagar por mes</div>
-              <div className="stat-value" style={{ fontSize: 26 }}>{money(monthlyBudget)}</div>
-              <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>mínimos {money(totalMin)} + extra {money(effExtra)}</div>
-            </div>
+          <div className="card" style={{ background: 'var(--bg-base)', marginBottom: 14 }}>
+            <div className="stat-label">Total a pagar por mes</div>
+            <div className="stat-value" style={{ fontSize: 28 }}>{money(monthlyBudget)}</div>
+            <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>mínimos {money(totalMin)} + extra {money(effExtra)} al snowball</div>
           </div>
 
           {!sim.finished ? (

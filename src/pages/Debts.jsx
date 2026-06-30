@@ -29,8 +29,13 @@ function suggestBudget(debts, monthsAvail) {
   return Math.max(totalMin, Math.ceil(totalBal / Math.max(1, monthsAvail)))
 }
 
-const addMonths = (n) => {
-  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + n)
+// El plan arranca en agosto 2026 y debe terminar en diciembre 2027.
+const PLAN_START = { y: 2026, m: 7 } // m=7 => agosto (0-indexed)
+const PLAN_MONTHS = 17               // ago 2026 .. dic 2027 inclusive
+// Mes calendario en el que se salda algo (n = mes 1 = agosto 2026)
+const planMonthLabel = (n) => {
+  const d = new Date(PLAN_START.y, PLAN_START.m, 1)
+  d.setMonth(d.getMonth() + (n - 1))
   return d.toLocaleDateString('es', { month: 'short', year: 'numeric' })
 }
 
@@ -66,8 +71,8 @@ export default function Debts() {
     return `${y} ${y === 1 ? 'año' : 'años'}${mm ? ` ${mm} m` : ''} · ${m} meses`
   }
 
-  // Plan: pagás los mínimos + el extra hasta llegar a ₲4.000.000 en total por mes
-  const monthlyBudget = Math.max(totalMin, 4000000) // total fijo: ₲4.000.000
+  // Plan: terminar todas las deudas en la ventana ago 2026 → dic 2027 (17 meses)
+  const monthlyBudget = debts.length ? Math.max(totalMin, Math.ceil(total / PLAN_MONTHS)) : 0
   const effExtra = monthlyBudget - totalMin
   const sim = debts.length ? simulateSnowball(debts, monthlyBudget) : null
 
@@ -156,12 +161,12 @@ export default function Debts() {
       {/* Plan bola de nieve con extra editable */}
       {sim && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title">Plan para salir de deudas</div>
+          <div className="card-title">Plan para salir de deudas · ago 2026 → dic 2027</div>
 
           <div className="card" style={{ background: 'var(--bg-base)', marginBottom: 14 }}>
             <div className="stat-label">Total a pagar por mes</div>
             <div className="stat-value" style={{ fontSize: 28 }}>{money(monthlyBudget)}</div>
-            <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>mínimos {money(totalMin)} + extra {money(effExtra)} al snowball</div>
+            <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>mínimos {money(totalMin)} + extra {money(effExtra)} al snowball · empezando en agosto 2026</div>
           </div>
 
           {!sim.finished ? (
@@ -170,7 +175,7 @@ export default function Debts() {
             <div className="card" style={{ background: 'var(--bg-base)', marginBottom: 14 }}>
               <div className="row between wrap">
                 <span className="text-2" style={{ fontSize: 13.5 }}>🏁 Salís de <b>todas</b> las deudas en</span>
-                <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{addMonths(sim.totalMonths)} <span className="text-muted" style={{ fontWeight: 500 }}>· {sim.totalMonths} {sim.totalMonths === 1 ? 'mes' : 'meses'}</span></span>
+                <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{planMonthLabel(sim.totalMonths)} <span className="text-muted" style={{ fontWeight: 500 }}>· {sim.totalMonths} {sim.totalMonths === 1 ? 'mes' : 'meses'}</span></span>
               </div>
             </div>
           )}
@@ -185,7 +190,7 @@ export default function Debts() {
                   <td style={{ textAlign: 'right' }}>{money(d.current_balance)}</td>
                   <td style={{ textAlign: 'right' }} className="text-2">{money(d.min_payment)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700 }}>{sim.freeAt[i] ? `${sim.freeAt[i]} ${sim.freeAt[i] === 1 ? 'mes' : 'meses'}` : '—'}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, textTransform: 'capitalize' }} className="text-2">{sim.freeAt[i] ? addMonths(sim.freeAt[i]) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, textTransform: 'capitalize' }} className="text-2">{sim.freeAt[i] ? planMonthLabel(sim.freeAt[i]) : '—'}</td>
                 </tr>
               ))}
             </tbody>

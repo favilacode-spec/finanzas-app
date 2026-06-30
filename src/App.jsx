@@ -8,6 +8,7 @@ import Transactions from './pages/Transactions'
 import Categories from './pages/Categories'
 import Goals from './pages/Goals'
 import Recurring from './pages/Recurring'
+import Budgets from './pages/Budgets'
 import Debts from './pages/Debts'
 import Trip from './pages/Trip'
 import Reports from './pages/Reports'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/categorias" element={<Categories />} />
         <Route path="/metas" element={<Goals />} />
         <Route path="/recurrentes" element={<Recurring />} />
+        <Route path="/presupuestos" element={<Budgets />} />
         <Route path="/deudas" element={<Debts />} />
         <Route path="/viaje" element={<Trip />} />
         <Route path="/reportes" element={<Reports />} />

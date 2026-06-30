@@ -12,6 +12,7 @@ const NAV = [
   { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
   { to: '/cuentas', label: 'Cuentas', icon: Wallet },
   { to: '/movimientos', label: 'Movimientos', icon: ArrowLeftRight },
+  { to: '/presupuestos', label: 'Presupuestos', icon: PieChart },
   { to: '/metas', label: 'Metas de ahorro', icon: Target },
   { to: '/deudas', label: 'Deudas', icon: CreditCard },
   { to: '/recurrentes', label: 'Recurrentes', icon: Repeat },

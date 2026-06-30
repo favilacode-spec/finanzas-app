@@ -5,31 +5,28 @@ import { useAuth } from '../context/AuthContext'
 import { money, fmtDate } from '../lib/format'
 import Modal from '../components/Modal'
 
-// Simula el plan bola de nieve para terminar todo en 'monthsAvail' meses (sin intereses).
-// Mínimos a todas + extra que va a la primera deuda de la lista; al pagarse, cascada a la siguiente.
-function snowballPlan(debts, monthsAvail) {
-  const order = debts.map((d) => ({ name: d.name, bal: Number(d.current_balance), min: Number(d.min_payment || 0) }))
-  const totalBal = order.reduce((s, d) => s + d.bal, 0)
-  const totalMin = order.reduce((s, d) => s + d.min, 0)
-  const months = Math.max(1, monthsAvail)
-  const monthlyBudget = Math.max(totalMin, Math.ceil(totalBal / months))
+// Simula bola de nieve con un pago mensual total fijo (sin intereses).
+// Cada deuda recibe su mínimo; el resto (extra + mínimos liberados) va a la 1ª deuda no pagada (cascada).
+function simulateSnowball(debts, monthlyBudget) {
+  const order = debts.map((d) => ({ bal: Number(d.current_balance), min: Number(d.min_payment || 0) }))
   const bal = order.map((d) => d.bal)
   const freeAt = order.map(() => null)
   let m = 0
   while (bal.some((b) => b > 0.5) && m < 1200) {
     m++
     let budget = monthlyBudget
-    for (let i = 0; i < order.length; i++) { // mínimos
-      if (bal[i] <= 0) continue
-      const pay = Math.min(order[i].min, bal[i], budget); bal[i] -= pay; budget -= pay
-    }
-    for (let i = 0; i < order.length && budget > 0; i++) { // extra en cascada
-      if (bal[i] <= 0) continue
-      const pay = Math.min(bal[i], budget); bal[i] -= pay; budget -= pay
-    }
+    for (let i = 0; i < order.length; i++) { if (bal[i] <= 0) continue; const p = Math.min(order[i].min, bal[i], budget); bal[i] -= p; budget -= p }
+    for (let i = 0; i < order.length && budget > 0; i++) { if (bal[i] <= 0) continue; const p = Math.min(bal[i], budget); bal[i] -= p; budget -= p }
     for (let i = 0; i < order.length; i++) if (bal[i] <= 0.5 && freeAt[i] == null) freeAt[i] = m
   }
-  return { monthlyBudget, extra: monthlyBudget - totalMin, totalMin, totalMonths: m, freeAt, order }
+  return { freeAt, totalMonths: m, finished: !bal.some((b) => b > 0.5) }
+}
+
+// Pago mensual sugerido para terminar todo en 'monthsAvail' meses.
+function suggestBudget(debts, monthsAvail) {
+  const totalBal = debts.reduce((s, d) => s + Number(d.current_balance), 0)
+  const totalMin = debts.reduce((s, d) => s + Number(d.min_payment || 0), 0)
+  return Math.max(totalMin, Math.ceil(totalBal / Math.max(1, monthsAvail)))
 }
 
 const addMonths = (n) => {
@@ -46,6 +43,7 @@ export default function Debts() {
   const [ai, setAi] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
   const [targetMonth, setTargetMonth] = useState('2027-12')
+  const [extra, setExtra] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -70,13 +68,16 @@ export default function Debts() {
     return `${y} ${y === 1 ? 'año' : 'años'}${mm ? ` ${mm} m` : ''} · ${m} meses`
   }
 
-  // Plan con fecha objetivo
+  // Plan: pagás los mínimos + un extra editable que va al snowball
   const monthsToTarget = (() => {
     const [y, mo] = targetMonth.split('-').map(Number)
     const now = new Date()
     return Math.max(1, (y - now.getFullYear()) * 12 + ((mo - 1) - now.getMonth()))
   })()
-  const plan = debts.length ? snowballPlan(debts, monthsToTarget) : null
+  const suggestedExtra = debts.length ? Math.max(0, suggestBudget(debts, monthsToTarget) - totalMin) : 0
+  const effExtra = extra === '' ? suggestedExtra : (parseInt(String(extra).replace(/[^0-9]/g, ''), 10) || 0)
+  const monthlyBudget = totalMin + effExtra
+  const sim = debts.length ? simulateSnowball(debts, monthlyBudget) : null
 
   // Reasigna sort 0..n al nuevo orden y recarga
   const reindex = async (arr) => {
@@ -160,29 +161,38 @@ export default function Debts() {
 
       {ai && <div className="card" style={{ marginBottom: 16, whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: 14 }}>{ai}</div>}
 
-      {/* Plan bola de nieve con fecha objetivo */}
-      {plan && (
+      {/* Plan bola de nieve con extra editable */}
+      {sim && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="row between wrap" style={{ gap: 10, marginBottom: 12 }}>
-            <div className="card-title" style={{ margin: 0 }}>Plan para salir de deudas en una fecha</div>
-            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>Terminar para:</span>
-              <input className="form-input" type="month" style={{ width: 160, padding: '8px 10px' }} value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)} />
+          <div className="card-title">Plan: mínimos + un extra por mes</div>
+
+          <div className="grid grid-2" style={{ gap: 12, marginBottom: 14, alignItems: 'end' }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Extra por mes (₲) — va al snowball</label>
+              <input className="form-input" inputMode="numeric" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={String(suggestedExtra)} style={{ fontSize: 18, fontWeight: 700 }} />
+              <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="text-muted" style={{ fontSize: 12 }}>Sugerido para</span>
+                <input className="form-input" type="month" style={{ width: 130, padding: '5px 8px', fontSize: 12 }} value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)} />
+                <button type="button" className="badge" style={{ cursor: 'pointer' }} onClick={() => setExtra(String(suggestedExtra))}>Usar {money(suggestedExtra)}</button>
+              </div>
+            </div>
+            <div className="card" style={{ background: 'var(--bg-base)' }}>
+              <div className="stat-label">Total a pagar por mes</div>
+              <div className="stat-value" style={{ fontSize: 26 }}>{money(monthlyBudget)}</div>
+              <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>mínimos {money(totalMin)} + extra {money(effExtra)}</div>
             </div>
           </div>
 
-          <div className="grid grid-2" style={{ gap: 12, marginBottom: 14 }}>
-            <div className="card" style={{ background: 'var(--bg-base)' }}>
-              <div className="stat-label">Total a pagar por mes</div>
-              <div className="stat-value" style={{ fontSize: 26 }}>{money(plan.monthlyBudget)}</div>
-              <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>mínimos {money(plan.totalMin)} + extra {money(plan.extra)}</div>
+          {!sim.finished ? (
+            <div style={{ color: '#c9c9cf', fontSize: 13 }}>Con ese monto no se terminan de pagar (subí el extra o cargá pagos mínimos).</div>
+          ) : (
+            <div className="card" style={{ background: 'var(--bg-base)', marginBottom: 14 }}>
+              <div className="row between wrap">
+                <span className="text-2" style={{ fontSize: 13.5 }}>🏁 Salís de <b>todas</b> las deudas en</span>
+                <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{addMonths(sim.totalMonths)} <span className="text-muted" style={{ fontWeight: 500 }}>· {sim.totalMonths} {sim.totalMonths === 1 ? 'mes' : 'meses'}</span></span>
+              </div>
             </div>
-            <div className="card" style={{ background: 'var(--bg-base)' }}>
-              <div className="stat-label">Extra al snowball por mes</div>
-              <div className="stat-value" style={{ fontSize: 26 }}>{money(plan.extra)}</div>
-              <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>va a la 1ª deuda; al pagarse, pasa a la siguiente</div>
-            </div>
-          </div>
+          )}
 
           <table className="data-table">
             <thead><tr><th>#</th><th>Deuda</th><th style={{ textAlign: 'right' }}>Saldo</th><th style={{ textAlign: 'right' }}>Mín./mes</th><th style={{ textAlign: 'right' }}>Tarda</th><th style={{ textAlign: 'right' }}>Libre en</th></tr></thead>
@@ -193,14 +203,14 @@ export default function Debts() {
                   <td style={{ fontWeight: 600 }}>{d.name}</td>
                   <td style={{ textAlign: 'right' }}>{money(d.current_balance)}</td>
                   <td style={{ textAlign: 'right' }} className="text-2">{money(d.min_payment)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{plan.freeAt[i] ? `${plan.freeAt[i]} ${plan.freeAt[i] === 1 ? 'mes' : 'meses'}` : '—'}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, textTransform: 'capitalize' }} className="text-2">{plan.freeAt[i] ? addMonths(plan.freeAt[i]) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{sim.freeAt[i] ? `${sim.freeAt[i]} ${sim.freeAt[i] === 1 ? 'mes' : 'meses'}` : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, textTransform: 'capitalize' }} className="text-2">{sim.freeAt[i] ? addMonths(sim.freeAt[i]) : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="text-muted" style={{ fontSize: 12, marginTop: 10 }}>
-            Pagás <b>{money(plan.monthlyBudget)}</b> por mes en total (el mínimo de cada deuda + <b>{money(plan.extra)}</b> extra a la primera de la lista). Quedás libre de deudas para <b style={{ textTransform: 'capitalize' }}>{addMonths(plan.totalMonths)}</b>. Sin contar intereses. Cambiá la fecha objetivo y se recalcula.
+            Cada deuda recibe su <b>mínimo</b>; el <b>extra ({money(effExtra)})</b> + los mínimos que se liberan van a la primera deuda de la lista hasta saldarla, y después a la siguiente (cascada). “Tarda” y “Libre en” son por deuda. Sin contar intereses.
           </p>
         </div>
       )}

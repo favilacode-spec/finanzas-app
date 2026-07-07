@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, Plane, Camera, Link as LinkIcon, Check, Sparkles, Settings2 } from 'lucide-react'
 import { supabase, FUNCTIONS_URL } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { money } from '../lib/format'
+import { money, amountsHidden } from '../lib/format'
 import Modal from '../components/Modal'
 
-const usd = (v) => '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
+const usd = (v) => amountsHidden() ? '$ •••' : '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
 
 // Estimado de referencia para Costa Rica SIN alojamiento (parás en casa de familia)
 const EST = [

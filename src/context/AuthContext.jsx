@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { setAmountsHidden } from '../lib/format'
 
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -9,6 +10,17 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [household, setHousehold] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [hideBalances, setHideBalances] = useState(() => {
+    try { return localStorage.getItem('hideBalances') === '1' } catch { return false }
+  })
+  // mantener el formateador de moneda sincronizado (antes de renderizar los hijos)
+  setAmountsHidden(hideBalances)
+  const toggleHide = () => setHideBalances((v) => {
+    const nv = !v
+    try { localStorage.setItem('hideBalances', nv ? '1' : '0') } catch { /* noop */ }
+    setAmountsHidden(nv)
+    return nv
+  })
 
   const loadProfile = useCallback(async (uid) => {
     if (!uid) { setProfile(null); setHousehold(null); return }
@@ -55,6 +67,6 @@ export function AuthProvider({ children }) {
 
   const refresh = () => loadProfile(user?.id)
 
-  const value = { user, profile, household, loading, signIn, signUp, signOut, refresh, setProfile }
+  const value = { user, profile, household, loading, signIn, signUp, signOut, refresh, setProfile, hideBalances, toggleHide }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

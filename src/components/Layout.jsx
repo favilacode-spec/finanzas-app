@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, PieChart, Tags, Target,
   Repeat, BarChart3, Inbox as InboxIcon, Sparkles, Settings as Cog, Menu, LogOut,
-  CreditCard, Plane,
+  CreditCard, Plane, Eye, EyeOff,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -25,7 +25,7 @@ const NAV = [
 ]
 
 export default function Layout() {
-  const { profile, household, signOut } = useAuth()
+  const { profile, household, signOut, hideBalances, toggleHide } = useAuth()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(0)
   const loc = useLocation()
@@ -94,6 +94,10 @@ export default function Layout() {
         <header className="topbar">
           <button className="hamburger" onClick={() => setOpen(true)} aria-label="Menú"><Menu size={20} /></button>
           <h1>{title}</h1>
+          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={toggleHide}
+            title={hideBalances ? 'Mostrar montos' : 'Ocultar montos'} aria-label="Ocultar montos">
+            {hideBalances ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </header>
         <main className="content">
           <Outlet />

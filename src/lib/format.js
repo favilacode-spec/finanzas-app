@@ -9,13 +9,21 @@ const pyg = new Intl.NumberFormat('es-PY', {
   minimumFractionDigits: 0,
 })
 
+// Modo privado: ocultar todos los montos
+let _hidden = false
+export function setAmountsHidden(v) { _hidden = !!v }
+export function amountsHidden() { return _hidden }
+const MASK = '₲ •••••'
+
 export function money(value) {
+  if (_hidden) return MASK
   const n = Number(value || 0)
   return pyg.format(Math.round(n))
 }
 
 // versión compacta para gráficos (1,5 M)
 export function moneyShort(value) {
+  if (_hidden) return '•••'
   const n = Number(value || 0)
   const abs = Math.abs(n)
   if (abs >= 1_000_000_000) return `₲${(n / 1_000_000_000).toFixed(1)} MM`

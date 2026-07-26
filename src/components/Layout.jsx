@@ -16,7 +16,7 @@ const NAV = [
   { to: '/metas', label: 'Metas de ahorro', icon: Target },
   { to: '/deudas', label: 'Deudas', icon: CreditCard },
   { to: '/recurrentes', label: 'Recurrentes', icon: Repeat },
-  { to: '/viaje', label: 'Viaje', icon: Plane },
+  { to: '/viaje', label: 'Proyectos', icon: Target },
   { to: '/categorias', label: 'Categorías', icon: Tags },
   { to: '/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/bandeja', label: 'Bandeja', icon: InboxIcon, badge: true },

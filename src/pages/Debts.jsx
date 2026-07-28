@@ -39,14 +39,23 @@ const planMonthLabel = (n) => {
   return d.toLocaleDateString('es', { month: 'short', year: 'numeric' })
 }
 
+const OWNERS = [
+  { key: 'mias', label: 'Mías' },
+  { key: 'esposa', label: 'Esposa' },
+  { key: 'empresa', label: 'Empresa' },
+  { key: 'conjunta', label: 'Conjuntas' },
+]
+const ownerLabel = (k) => OWNERS.find((o) => o.key === k)?.label || 'Mías'
+
 export default function Debts() {
   const { household, user } = useAuth()
-  const [debts, setDebts] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(null)
   const [payFor, setPayFor] = useState(null)
   const [ai, setAi] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
+  const [tab, setTab] = useState('todas')
+  const [allDebts, setAllDebts] = useState([])
 
   const load = async () => {
     setLoading(true)
@@ -54,10 +63,14 @@ export default function Debts() {
     // El orden lo manda 'sort' (manual). Como desempate, saldo más chico primero (snowball).
     const sorted = (data || []).sort((a, b) =>
       (a.sort - b.sort) || (Number(a.current_balance) - Number(b.current_balance)))
-    setDebts(sorted)
+    setAllDebts(sorted)
     setLoading(false)
   }
   useEffect(() => { if (household) load() }, [household])
+
+  // Deudas de la pestaña activa
+  const debts = tab === 'todas' ? allDebts : allDebts.filter((d) => (d.owner || 'mias') === tab)
+  const moveOwner = async (d, owner) => { await supabase.from('debts').update({ owner }).eq('id', d.id); load() }
 
   const total = debts.reduce((s, d) => s + Number(d.current_balance), 0)
   const totalMin = debts.reduce((s, d) => s + Number(d.min_payment || 0), 0)
@@ -130,12 +143,47 @@ export default function Debts() {
 
   if (loading) return <div style={{ padding: 40, display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>
 
+  const countOf = (k) => k === 'todas' ? allDebts.length : allDebts.filter((d) => (d.owner || 'mias') === k).length
+  const sumOf = (k) => (k === 'todas' ? allDebts : allDebts.filter((d) => (d.owner || 'mias') === k))
+    .reduce((s, d) => s + Number(d.current_balance), 0)
+
   return (
     <div>
+      {/* Sub-pestañas por dueño */}
+      <div className="row wrap" style={{ gap: 8, marginBottom: 14 }}>
+        {[{ key: 'todas', label: 'Todas' }, ...OWNERS].map((o) => (
+          <button key={o.key} type="button" onClick={() => setTab(o.key)}
+            className="badge" style={{
+              cursor: 'pointer', padding: '7px 13px', fontSize: 13,
+              background: tab === o.key ? '#ededf2' : 'var(--bg-elevated)',
+              color: tab === o.key ? '#0c0c0f' : 'var(--text-2)',
+              borderColor: tab === o.key ? '#ededf2' : 'var(--border)',
+            }}>
+            {o.label} <span style={{ opacity: .65, marginLeft: 3 }}>{countOf(o.key)}</span>
+          </button>
+        ))}
+      </div>
+
+      {tab === 'todas' && allDebts.length > 0 && (
+        <div className="card card-pad-0" style={{ marginBottom: 14 }}>
+          <table className="data-table">
+            <tbody>
+              {OWNERS.filter((o) => countOf(o.key) > 0).map((o) => (
+                <tr key={o.key}>
+                  <td style={{ fontWeight: 600 }}>{o.label}</td>
+                  <td className="text-muted" style={{ textAlign: 'right' }}>{countOf(o.key)} deudas</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{money(sumOf(o.key))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(120deg, #1a1a1f, #0c0c0f)' }}>
         <div className="row between wrap">
           <div>
-            <div className="stat-label">Deuda total</div>
+            <div className="stat-label">Deuda total{tab !== 'todas' ? ` · ${ownerLabel(tab)}` : ''}</div>
             <div className="stat-value" style={{ fontSize: 30 }}>{money(total)}</div>
             <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>{debts.length} deudas · pago mínimo mensual: {money(totalMin)}</div>
             {overallMonths != null && (
@@ -222,6 +270,11 @@ export default function Debts() {
                         Saldo {money(d.current_balance)} de {money(d.total_amount)}
                         {Number(d.min_payment) > 0 ? ` · mín. ${money(d.min_payment)}` : ''}
                       </div>
+                      <select className="form-select" value={d.owner || 'mias'} onChange={(e) => moveOwner(d, e.target.value)}
+                        title="Mover a otra pestaña"
+                        style={{ marginTop: 6, padding: '3px 26px 3px 9px', fontSize: 11.5, width: 'auto', borderRadius: 999, background: 'var(--bg-elevated)' }}>
+                        {OWNERS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                      </select>
                     </div>
                   </span>
                   <div className="row" style={{ gap: 3 }}>
@@ -260,6 +313,7 @@ function DebtForm({ debt, household, onClose, onSaved }) {
   const [total, setTotal] = useState(debt.total_amount ? String(debt.total_amount) : '')
   const [balance, setBalance] = useState(debt.current_balance != null && debt.id ? String(debt.current_balance) : (debt.total_amount ? String(debt.total_amount) : ''))
   const [minPay, setMinPay] = useState(debt.min_payment ? String(debt.min_payment) : '')
+  const [owner, setOwner] = useState(debt.owner || 'mias')
   const [busy, setBusy] = useState(false)
   const num = (v) => parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0
 
@@ -270,7 +324,7 @@ function DebtForm({ debt, household, onClose, onSaved }) {
     const payload = {
       household_id: household.id, name: name.trim(),
       total_amount: num(total), current_balance: isNew ? (num(balance) || num(total)) : num(balance),
-      interest_rate: 0, min_payment: num(minPay),
+      interest_rate: 0, min_payment: num(minPay), owner,
     }
     if (isNew) await supabase.from('debts').insert(payload)
     else await supabase.from('debts').update(payload).eq('id', debt.id)
@@ -286,6 +340,12 @@ function DebtForm({ debt, household, onClose, onSaved }) {
           <div className="field"><label>Saldo pendiente (₲)</label><input className="form-input" inputMode="numeric" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="0" /></div>
         </div>
         <div className="field"><label>Pago mínimo mensual (₲, opcional)</label><input className="form-input" inputMode="numeric" value={minPay} onChange={(e) => setMinPay(e.target.value)} placeholder="0" /></div>
+        <div className="field">
+          <label>¿De quién es esta deuda?</label>
+          <select className="form-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
+            {OWNERS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+        </div>
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
       </form>
     </Modal>

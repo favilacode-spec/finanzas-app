@@ -1,4 +1,4 @@
-const CACHE = 'mbcr-v4';
+const CACHE = 'mbcr-v5';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -41,5 +41,28 @@ self.addEventListener('fetch', (e) => {
       return net;
     }).catch(() => cached);
     return cached || network;
+  })());
+});
+
+/* ---------- Notificaciones push ---------- */
+self.addEventListener('push', (e) => {
+  let d = { title: 'Mi Billetera', body: '', url: '/' };
+  try { d = { ...d, ...e.data.json() }; } catch { if (e.data) d.body = e.data.text(); }
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: d.body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: d.url },
+    vibrate: [60, 40, 60],
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil((async () => {
+    const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { if ('focus' in c) { c.navigate(url); return c.focus(); } }
+    if (clients.openWindow) return clients.openWindow(url);
   })());
 });

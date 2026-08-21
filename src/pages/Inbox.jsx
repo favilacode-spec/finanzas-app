@@ -31,9 +31,10 @@ export default function Inbox() {
       setItems(p.data || []); setAccounts(accEnriched); setCats(c.data || []); setRules(r.data || [])
       const d = {}
       ;(p.data || []).forEach((it) => {
+        const cuentaPorDefecto = it.suggested_account_id || household?.default_account_id || a.data?.[0]?.id || ''
         d[it.id] = {
-          account: a.data?.[0]?.id || '',
-          toAccount: a.data?.[1]?.id || a.data?.[0]?.id || '',
+          account: cuentaPorDefecto,
+          toAccount: (a.data || []).find((x) => x.id !== cuentaPorDefecto)?.id || cuentaPorDefecto,
           category: it.suggested_category_id || '',
           amount: it.amount ?? '',
           type: it.suggested_type || 'expense',

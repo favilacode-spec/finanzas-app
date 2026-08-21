@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Copy, Check, Users, KeyRound, Apple, Mail, Sparkles, LogOut, Calculator, Plus, Trash2, Zap } from 'lucide-react'
+import { Copy, Check, Users, KeyRound, Apple, Mail, Sparkles, LogOut, Calculator, Plus, Trash2, Zap, Bell } from 'lucide-react'
 import { supabase, FUNCTIONS_URL } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { activarPush, desactivarPush, pushActivo } from '../lib/push'
 
 const DEFAULT_RULES = [
   { label: 'Principal', percent: 65, match: ['ueno', 'principal'] },
@@ -39,6 +40,8 @@ export default function Settings() {
   const [defAcc, setDefAcc] = useState('')
   const [reglasCount, setReglasCount] = useState(0)
   const [procBusy, setProcBusy] = useState(false)
+  const [pushOn, setPushOn] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
 
   useEffect(() => { setName(profile?.name || ''); setHhName(household?.name || '') }, [profile, household])
 
@@ -52,6 +55,7 @@ export default function Settings() {
     setDefAcc(household.default_account_id || '')
     supabase.from('merchant_rules').select('id', { count: 'exact', head: true })
       .then(({ count }) => setReglasCount(count || 0))
+    pushActivo().then(setPushOn).catch(() => {})
   }, [household])
 
   const guardarAuto = async (auto, cuenta) => {
@@ -60,6 +64,20 @@ export default function Settings() {
       auto_approve: auto, default_account_id: cuenta || null, card_account_id: cuenta || null,
     }).eq('id', household.id)
     flash('Automatización actualizada')
+  }
+
+  const prenderPush = async () => {
+    setPushBusy(true)
+    try { await activarPush(household.id, user.id); setPushOn(true); flash('Notificaciones activadas') }
+    catch (e) { flash(e.message || String(e)) } finally { setPushBusy(false) }
+  }
+  const apagarPush = async () => { await desactivarPush(); setPushOn(false); flash('Notificaciones desactivadas') }
+  const probarPush = async () => {
+    const r = await fetch(`${FUNCTIONS_URL}/enviar-push`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, title: 'Mi Billetera', body: '¡Las notificaciones funcionan! 🎉', url: '/' }),
+    }).then((x) => x.json())
+    flash(r.error ? r.error : `Enviada a ${r.enviados} dispositivo(s)`)
   }
 
   const procesarPendientes = async () => {
@@ -205,6 +223,30 @@ export default function Settings() {
             {procBusy ? 'Procesando…' : 'Procesar pendientes con IA'}
           </button>
         </div>
+      </div>
+
+      {/* Notificaciones */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title"><Bell size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Notificaciones</div>
+        <p className="text-2" style={{ fontSize: 13.5, marginBottom: 12 }}>
+          Recibí un aviso en el celular cuando entra un movimiento o cuando vence una deuda.
+        </p>
+        <div className="row wrap" style={{ gap: 8 }}>
+          {pushOn ? (
+            <>
+              <span className="badge badge-blue">Activadas ✓</span>
+              <button className="btn btn-secondary btn-sm" onClick={probarPush}>Enviar prueba</button>
+              <button className="btn btn-ghost btn-sm" onClick={apagarPush}>Desactivar</button>
+            </>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={prenderPush} disabled={pushBusy}>
+              {pushBusy ? 'Activando…' : 'Activar notificaciones'}
+            </button>
+          )}
+        </div>
+        <p className="text-muted" style={{ fontSize: 11.5, marginTop: 10 }}>
+          En iPhone: primero agregá la app a la pantalla de inicio (Compartir → Agregar a inicio) y activalas desde ahí.
+        </p>
       </div>
 
       {/* Distribución de ingresos */}

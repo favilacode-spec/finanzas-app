@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Check, Users, KeyRound, Apple, Mail, Sparkles, LogOut, Calculator, Plus, Trash2 } from 'lucide-react'
+import { Copy, Check, Users, KeyRound, Apple, Mail, Sparkles, LogOut, Calculator, Plus, Trash2, Zap } from 'lucide-react'
 import { supabase, FUNCTIONS_URL } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -35,6 +35,10 @@ export default function Settings() {
   const [msg, setMsg] = useState('')
   const [accounts, setAccounts] = useState([])
   const [rules, setRules] = useState([])
+  const [autoApprove, setAutoApprove] = useState(false)
+  const [defAcc, setDefAcc] = useState('')
+  const [reglasCount, setReglasCount] = useState(0)
+  const [procBusy, setProcBusy] = useState(false)
 
   useEffect(() => { setName(profile?.name || ''); setHhName(household?.name || '') }, [profile, household])
 
@@ -44,7 +48,30 @@ export default function Settings() {
       .then(({ data }) => setMembers(data || []))
     supabase.rpc('get_or_create_ingest_token').then(({ data }) => setToken(data || ''))
     loadRules()
+    setAutoApprove(!!household.auto_approve)
+    setDefAcc(household.default_account_id || '')
+    supabase.from('merchant_rules').select('id', { count: 'exact', head: true })
+      .then(({ count }) => setReglasCount(count || 0))
   }, [household])
+
+  const guardarAuto = async (auto, cuenta) => {
+    setAutoApprove(auto); setDefAcc(cuenta)
+    await supabase.from('households').update({
+      auto_approve: auto, default_account_id: cuenta || null, card_account_id: cuenta || null,
+    }).eq('id', household.id)
+    flash('Automatización actualizada')
+  }
+
+  const procesarPendientes = async () => {
+    setProcBusy(true)
+    try {
+      const r = await fetch(`${FUNCTIONS_URL}/procesar-pendientes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }).then((x) => x.json())
+      flash(r.error ? r.error : `Listo: ${r.aprobados} aprobados, ${r.saltados} quedaron para revisar`)
+    } catch (e) { flash(String(e)) } finally { setProcBusy(false) }
+  }
 
   const loadRules = async () => {
     const [{ data: accs }, { data: rs }] = await Promise.all([
@@ -153,6 +180,31 @@ export default function Settings() {
         </p>
         <Copyable value={emailUrl} />
         <p className="text-muted" style={{ fontSize: 12.5, marginTop: 12 }}>Paso a paso en el archivo INSTRUCCIONES.md.</p>
+      </div>
+
+      {/* Automatización */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title"><Zap size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Automatización</div>
+        <label className="row between" style={{ gap: 10, cursor: 'pointer', padding: '6px 0' }}>
+          <span>
+            <div style={{ fontWeight: 600 }}>Aprobar movimientos automáticamente</div>
+            <div className="text-muted" style={{ fontSize: 12.5 }}>Los gastos que la app reconoce entran directo, sin pasar por la Bandeja.</div>
+          </span>
+          <input type="checkbox" checked={autoApprove} onChange={(e) => guardarAuto(e.target.checked, defAcc)} style={{ width: 20, height: 20 }} />
+        </label>
+        <div className="field" style={{ marginTop: 12 }}>
+          <label>Cuenta por defecto (donde caen los gastos)</label>
+          <select className="form-select" value={defAcc} onChange={(e) => guardarAuto(autoApprove, e.target.value)}>
+            <option value="">Elegir…</option>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+        <div className="row between wrap" style={{ gap: 8, marginTop: 10 }}>
+          <span className="text-muted" style={{ fontSize: 12.5 }}>{reglasCount} comercios aprendidos</span>
+          <button className="btn btn-secondary btn-sm" onClick={procesarPendientes} disabled={procBusy}>
+            {procBusy ? 'Procesando…' : 'Procesar pendientes con IA'}
+          </button>
+        </div>
       </div>
 
       {/* Distribución de ingresos */}

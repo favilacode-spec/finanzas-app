@@ -240,6 +240,30 @@ input, select, textarea { font-family: inherit; }
 .icon-btn { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 9px; padding: 7px; color: var(--text-2); display:grid; place-items:center; }
 .icon-btn:hover { color: var(--text); background: var(--bg-hover); }
 
+/* ============ BOTTOM NAV (móvil) ============ */
+.bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    background: rgba(10,10,12,0.92); backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+  }
+  .bn-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    font-size: 10.5px; font-weight: 600; color: var(--text-muted);
+    padding: 4px 2px; border-radius: 10px; transition: color .15s;
+  }
+  .bn-item.active { color: #fff; }
+  .bn-dot {
+    position: absolute; top: -2px; right: -4px; width: 8px; height: 8px;
+    border-radius: 999px; background: #ededf2; border: 2px solid #0a0a0c;
+  }
+  .content { padding-bottom: 90px !important; }
+}
+
 /* ============ MOBILE ============ */
 @media (max-width: 860px) {
   .grid-4 { grid-template-columns: repeat(2, 1fr); }

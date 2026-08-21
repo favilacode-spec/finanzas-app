@@ -102,6 +102,25 @@ export default function Layout() {
         <main className="content">
           <Outlet />
         </main>
+
+        {/* Navegación inferior (solo móvil) */}
+        <nav className="bottom-nav">
+          {[
+            { to: '/', label: 'Inicio', icon: LayoutDashboard, end: true },
+            { to: '/movimientos', label: 'Movim.', icon: ArrowLeftRight },
+            { to: '/cuentas', label: 'Cuentas', icon: Wallet },
+            { to: '/bandeja', label: 'Bandeja', icon: InboxIcon, badge: true },
+            { to: '/reportes', label: 'Reportes', icon: BarChart3 },
+          ].map((n) => (
+            <NavLink key={n.to} to={n.to} end={n.end} className="bn-item">
+              <span style={{ position: 'relative', display: 'inline-flex' }}>
+                <n.icon size={21} />
+                {n.badge && pending > 0 && <span className="bn-dot" />}
+              </span>
+              <span>{n.label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </div>
     </div>
   )

@@ -14,6 +14,7 @@ export default function Inbox() {
   const [draft, setDraft] = useState({})
   const [rules, setRules] = useState([])
   const [dist, setDist] = useState(null)
+  const [busyAll, setBusyAll] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -47,6 +48,37 @@ export default function Inbox() {
 
   const setField = (id, key, val) => setDraft((d) => ({ ...d, [id]: { ...d[id], [key]: val } }))
 
+  // Guarda la regla del comercio para que la próxima vez entre automático
+  const aprenderRegla = async (it, d) => {
+    const key = (it.merchant || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '')
+    if (key.length < 3 || d.type === 'transfer') return
+    await supabase.from('merchant_rules').upsert({
+      household_id: household.id, key, label: it.merchant,
+      category_id: d.category || null, account_id: d.account, tx_type: d.type || 'expense',
+    }, { onConflict: 'household_id,key' })
+  }
+
+  // Aprueba todos los que tengan cuenta y no sean transferencias
+  const aprobarTodo = async () => {
+    const listos = items.filter((it) => {
+      const d = draft[it.id]
+      return d?.account && d?.type !== 'transfer' && (it.amount || d?.amount)
+    })
+    if (!listos.length) return alert('No hay movimientos listos para aprobar de una.')
+    if (!confirm(`¿Aprobar ${listos.length} movimientos?`)) return
+    setBusyAll(true)
+    for (const it of listos) {
+      const d = draft[it.id]
+      await supabase.rpc('approve_pending', {
+        p_id: it.id, p_account: d.account,
+        p_category: d.category || null, p_type: d.type || 'expense', p_to_account: null,
+      })
+      await aprenderRegla(it, d)
+    }
+    setBusyAll(false)
+    load()
+  }
+
   const approve = async (it) => {
     const d = draft[it.id]
     if (!d?.account) return alert('Elegí una cuenta')
@@ -67,6 +99,8 @@ export default function Inbox() {
       p_to_account: d.type === 'transfer' ? d.toAccount : null,
     })
     if (error) return alert(error.message)
+    // Aprender: la próxima vez este comercio entra solo
+    await aprenderRegla(it, d)
     // Si fue un ingreso y hay reglas de distribución, mostrar el reparto
     if ((d.type || 'expense') === 'income' && rules.length > 0 && finalAmount > 0) {
       setDist({ amount: finalAmount })
@@ -79,10 +113,17 @@ export default function Inbox() {
 
   return (
     <div>
-      <p className="text-2" style={{ marginBottom: 16 }}>
-        Acá llegan los movimientos detectados automáticamente: gastos de Apple Pay, pagos de servicios,
-        transferencias recibidas (ingresos) y transferencias entre tus cuentas. Revisalos y aprobalos con un toque.
-      </p>
+      <div className="row between wrap" style={{ gap: 10, marginBottom: 16 }}>
+        <p className="text-2" style={{ margin: 0, flex: 1, minWidth: 220 }}>
+          Lo que la app reconoce entra <b>solo</b>. Acá quedan únicamente los que necesitan tu decisión.
+          Cuando aprobás uno, <b>aprende</b> y la próxima vez ese comercio ya no aparece.
+        </p>
+        {items.length > 0 && (
+          <button className="btn btn-primary" onClick={aprobarTodo} disabled={busyAll}>
+            <Check size={17} /> {busyAll ? 'Aprobando…' : 'Aprobar todo'}
+          </button>
+        )}
+      </div>
 
       {items.length === 0 ? (
         <div className="card empty-state">

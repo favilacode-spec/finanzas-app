@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { money, moneyShort, fmtDateShort } from '../lib/format'
+import { money, moneyCompact, moneyShort, fmtDateShort } from '../lib/format'
+import { ExtraReports } from './ReportsExtra'
 
 const PIE = ['#2f6fed', '#ef3e48', '#5b8def', '#ff7a82', '#0b3b8f', '#f0a500', '#7c5cff', '#22b8a6', '#e06bd0', '#9aa0a6']
-const tipStyle = { background: '#18223a', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#eef2fb', fontSize: 13 }
+const tipStyle = { background: '#1f2327', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: '#f4f6f7', fontSize: 13 }
 
 export default function Reports() {
   const { household } = useAuth()
@@ -19,6 +20,7 @@ export default function Reports() {
   const [fLabel, setFLabel] = useState('')
   const [fCat, setFCat] = useState('')
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState('general')
 
   useEffect(() => {
     if (!household) return
@@ -28,7 +30,7 @@ export default function Reports() {
     Promise.all([
       supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on'),
       supabase.from('categories').select('id,name,color'),
-      supabase.from('accounts').select('id,name,label_id').eq('archived', false).order('name'),
+      supabase.from('accounts').select('id,name,label_id,opening_balance,type,exclude_from_total').eq('archived', false).order('name'),
       supabase.from('account_labels').select('*').order('name'),
     ]).then(([tx, c, a, l]) => {
       setAllTxns(tx.data || [])
@@ -94,16 +96,24 @@ export default function Reports() {
 
   if (loading) return <div style={{ padding: 40, display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>
 
+  const TABS = [['general', 'General'], ['patrimonio', 'Patrimonio'], ['comercios', 'Comercios y personas'], ['etiquetas', 'Etiquetas'], ['suscripciones', 'Suscripciones'], ['proyeccion', 'Proyección anual']]
   return (
     <div>
-      <div className="row between wrap" style={{ marginBottom: 12, gap: 10 }}>
+      <div className="hscroll no-print" style={{ marginBottom: 14, margin: '0 0 14px', padding: 0 }}>
+        {TABS.map(([k, l]) => <button key={k} className={`badge chip-btn ${tab === k ? 'on' : ''}`} style={{ padding: '8px 14px', fontSize: 13, flex: '0 0 auto' }} onClick={() => setTab(k)}>{l}</button>)}
+      </div>
+      {tab !== 'general' ? <ExtraReports tab={tab} txns={txns} cats={cats} accounts={accounts} months={months} setMonths={setMonths} /> : <>
+      <div className="row between wrap no-print" style={{ marginBottom: 12, gap: 10 }}>
         <div className="segmented" style={{ maxWidth: 360 }}>
           {[3, 6, 12].map((m) => <button key={m} className={months === m ? 'active-blue' : ''} onClick={() => setMonths(m)}>{m} meses</button>)}
         </div>
-        <button className="btn btn-secondary" onClick={exportCSV}><Download size={16} /> Exportar CSV</button>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={exportCSV}><Download size={15} /> CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}><Printer size={15} /> PDF</button>
+        </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card no-print" style={{ marginBottom: 16 }}>
         <div className="grid grid-3" style={{ gap: 12 }}>
           <div className="field" style={{ margin: 0 }}>
             <label>Cuenta</label>
@@ -128,14 +138,14 @@ export default function Reports() {
           </div>
         </div>
         {(fAccount || fLabel || fCat) && (
-          <button className="btn-ghost btn-sm" style={{ marginTop: 10, color: 'var(--text-2)' }} onClick={() => { setFAccount(''); setFLabel(''); setFCat('') }}>Limpiar filtros</button>
+          <button className="link" style={{ marginTop: 10 }} onClick={() => { setFAccount(''); setFLabel(''); setFCat('') }}>Limpiar filtros</button>
         )}
       </div>
 
-      <div className="grid grid-3" style={{ marginBottom: 16 }}>
-        <div className="card"><div className="stat-label">Ingresos del período</div><div className="stat-value amount-pos" style={{ fontSize: 22 }}>{money(totalIn)}</div></div>
-        <div className="card"><div className="stat-label">Gastos del período</div><div className="stat-value amount-neg" style={{ fontSize: 22 }}>{money(totalOut)}</div></div>
-        <div className="card"><div className="stat-label">Ahorro del período</div><div className="stat-value" style={{ fontSize: 22, color: totalIn - totalOut >= 0 ? '#f4f4f6' : '#86868c' }}>{money(totalIn - totalOut)}</div></div>
+      <div className="stats-3" style={{ marginBottom: 16 }}>
+        <div className="card"><div className="stat-label">Ingresos</div><div className="stat-value amount-pos" >{moneyCompact(totalIn)}</div></div>
+        <div className="card"><div className="stat-label">Gastos</div><div className="stat-value amount-neg" >{moneyCompact(totalOut)}</div></div>
+        <div className="card"><div className="stat-label">Ahorro</div><div className="stat-value" style={{ color: totalIn - totalOut >= 0 ? 'var(--accent)' : 'var(--red)' }}>{moneyCompact(totalIn - totalOut)}</div></div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -144,16 +154,16 @@ export default function Reports() {
           <ResponsiveContainer>
             <AreaChart data={trend}>
               <defs>
-                <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e7e7ea" stopOpacity={0.45} /><stop offset="100%" stopColor="#e7e7ea" stopOpacity={0} /></linearGradient>
-                <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6b6b72" stopOpacity={0.45} /><stop offset="100%" stopColor="#6b6b72" stopOpacity={0} /></linearGradient>
+                <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" stopOpacity={0.4} /><stop offset="100%" stopColor="#34d399" stopOpacity={0} /></linearGradient>
+                <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff6b6b" stopOpacity={0.35} /><stop offset="100%" stopColor="#ff6b6b" stopOpacity={0} /></linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: '#5d6c8c', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={moneyShort} tick={{ fill: '#5d6c8c', fontSize: 11 }} axisLine={false} tickLine={false} width={60} />
+              <XAxis dataKey="month" tick={{ fill: '#6b737b', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={moneyShort} tick={{ fill: '#6b737b', fontSize: 11 }} axisLine={false} tickLine={false} width={60} />
               <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} />
               <Legend wrapperStyle={{ fontSize: 13 }} />
-              <Area type="monotone" dataKey="ingreso" name="Ingresos" stroke="#e7e7ea" fill="url(#gIn)" strokeWidth={2} />
-              <Area type="monotone" dataKey="gasto" name="Gastos" stroke="#9a9aa1" fill="url(#gOut)" strokeWidth={2} />
+              <Area type="monotone" dataKey="ingreso" name="Ingresos" stroke="#34d399" fill="url(#gIn)" strokeWidth={2} />
+              <Area type="monotone" dataKey="gasto" name="Gastos" stroke="#ff6b6b" fill="url(#gOut)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -183,8 +193,8 @@ export default function Reports() {
               <ResponsiveContainer>
                 <BarChart data={byCat.slice(0, 8)} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                  <XAxis type="number" tickFormatter={moneyShort} tick={{ fill: '#5d6c8c', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: '#a3b2d1', fontSize: 12 }} width={110} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tickFormatter={moneyShort} tick={{ fill: '#6b737b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fill: '#a6adb4', fontSize: 12 }} width={110} axisLine={false} tickLine={false} />
                   <Tooltip formatter={(v) => money(v)} contentStyle={tipStyle} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                     {byCat.slice(0, 8).map((d, i) => <Cell key={i} fill={d.color} />)}
@@ -214,6 +224,7 @@ export default function Reports() {
           </table>
         </div>
       )}
+      </>}
     </div>
   )
 }

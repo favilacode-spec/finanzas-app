@@ -3,6 +3,7 @@ import { Copy, Check, Users, KeyRound, Apple, Mail, Sparkles, LogOut, Calculator
 import { supabase, FUNCTIONS_URL } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { activarPush, desactivarPush, pushActivo } from '../lib/push'
+import SettingsExtra from '../components/SettingsExtra'
 
 const DEFAULT_RULES = [
   { label: 'Principal', percent: 65, match: ['ueno', 'principal'] },
@@ -250,6 +251,8 @@ export default function Settings() {
       </div>
 
       {/* Distribución de ingresos */}
+      <SettingsExtra flash={flash} />
+
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title"><Calculator size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Distribución de ingresos</div>
         <p className="text-2" style={{ fontSize: 13.5, marginBottom: 14 }}>

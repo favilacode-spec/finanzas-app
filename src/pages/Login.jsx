@@ -39,8 +39,8 @@ export default function Login() {
     <div className="center-screen" style={{ padding: 18 }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
-          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: 18, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, #33333a 0%, #0c0c0f 100%)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
-            <Wallet size={32} color="#fff" strokeWidth={2.2} />
+          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: 18, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, #5eead4, #34d399 50%, #0f766e)', color: '#03140d', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+            <Wallet size={32} color="#03140d" strokeWidth={2.2} />
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800 }}>Mi Billetera CR</h1>
           <p className="text-2" style={{ marginTop: 6 }}>Tu administración financiera, en familia.</p>

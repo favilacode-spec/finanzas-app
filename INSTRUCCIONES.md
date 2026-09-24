@@ -146,7 +146,18 @@ Ingreso o Gasto (lo podés cambiar antes de aprobar).
 
 ---
 
-## 5. Activar el Asesor IA (opcional, gratis) ✨
+## 5. Pagos, calendario y doble toque 📅
+
+- **Pagos y suscripciones** (menú o pestaña *Pagos*): cargá alquiler, internet, ANDE, Netflix… con su fecha.
+  Arriba ves siempre el **más cercano**. Tocá **Marcar pagado** y se registra el gasto y pasa al mes siguiente.
+  Nada se descuenta solo de tu saldo. Si ya pagaste varios sin marcar, usá **Ponerse al día**.
+- **Google / Apple Calendar**: en *Pagos → Sincronizar calendario* (o *Ajustes*) tocá el botón de tu calendario.
+  Te suscribís una vez y se actualiza solo. Cada pago también tiene su propio botón para agregarlo suelto.
+- **Recordatorios**: con las notificaciones activadas, a las 8:00 te avisa lo que vence hoy y lo que vence
+  según los "días de aviso" de cada pago. Tarjetas: 2 días antes del vencimiento.
+- **Doble toque atrás del iPhone**: en *Ajustes → Doble toque* está el link y los pasos (app Atajos → Abrir URL).
+
+## 6. Activar el Asesor IA (opcional, gratis) ✨
 
 1. Creá una clave gratis en **https://console.groq.com** → API Keys.
 2. En **Supabase** → proyecto `finanzas-app` → **Edge Functions → Secrets**

@@ -14,11 +14,18 @@ App de administración financiera personal y familiar, en **Guaraníes (₲)**, 
 - 🔁 **Recurrentes** (suscripciones, alquiler, salario).
 - 📊 **Reportes** con gráficos y exportación a CSV.
 - 📥 **Bandeja automática**: gastos de **Apple Pay** y **emails del banco** entran solos para aprobar.
+- 🧾 **Pagos y suscripciones**: el próximo vencimiento primero, avisos push (8:00), "Marcar pagado" / "Saltar", costo real anual.
+- 📅 **Calendario** mensual (pasado y futuro) + **suscripción ICS** para Google Calendar / Apple Calendar.
+- 💳 **Tarjetas de crédito**: día de cierre y vencimiento, ciclo actual, disponible, pagar tarjeta.
+- 🎯 **Metas con foto**, asistente (cuánto ahorrar por mes), historial de aportes, cuenta vinculada.
+- 🥧 **Presupuestos** con arrastre, recargas, traspasos, rebalanceo e historial de 12 meses.
+- ⚡ **Carga rápida** en lenguaje natural ("café 15 mil ueno"), atajos, link para el doble toque del iPhone.
+- 📎 Tickets adjuntos, #etiquetas, subcategorías, edición masiva, reportes de patrimonio / comercios / proyección, PDF y copia de seguridad.
 - ✨ **Asesor IA** (Groq, gratis) con consejos personalizados.
 
 ## Stack (100% gratis)
 - Frontend: Vite + React + Recharts
-- Backend/DB/Auth: Supabase (PostgreSQL + RLS + Edge Functions)
+- Backend/DB/Auth: Supabase (PostgreSQL + RLS + Edge Functions + Storage + pg_cron)
 - IA: Groq · Deploy: Vercel
 
 ## Desarrollo local

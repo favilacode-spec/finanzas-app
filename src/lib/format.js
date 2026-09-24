@@ -72,3 +72,13 @@ export const ACCOUNT_TYPES = [
 export function accountTypeLabel(v) {
   return ACCOUNT_TYPES.find((t) => t.value === v)?.label || 'Cuenta'
 }
+
+// compacto para tarjetitas chicas: ₲ 850.000 · ₲ 4,86 M
+export function moneyCompact(value) {
+  if (_hidden) return MASK
+  const n = Number(value || 0)
+  const a = Math.abs(n)
+  if (a < 1_000_000) return money(n)
+  const s = (a / 1_000_000).toFixed(a >= 100_000_000 ? 0 : a >= 10_000_000 ? 1 : 2).replace('.', ',')
+  return `${n < 0 ? '-' : ''}₲ ${s} M`
+}

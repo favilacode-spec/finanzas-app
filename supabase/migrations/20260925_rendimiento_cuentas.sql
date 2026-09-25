@@ -84,6 +84,6 @@ end $$;
 
 revoke all on function public.acreditar_rendimientos() from public, anon, authenticated;
 
--- Todos los días 07:10 hora Paraguay (10:10 UTC)
+-- Todos los días 11:50 hora Paraguay (14:50 UTC)
 select cron.unschedule('rendimientos-cuentas') where exists (select 1 from cron.job where jobname = 'rendimientos-cuentas');
-select cron.schedule('rendimientos-cuentas', '10 10 * * *', $$ select public.acreditar_rendimientos(); $$);
+select cron.schedule('rendimientos-cuentas', '50 14 * * *', $$ select public.acreditar_rendimientos(); $$);

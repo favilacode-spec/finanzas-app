@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Pencil, Archive, ArchiveRestore, ArrowUp, ArrowDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { money, ACCOUNT_TYPES, accountTypeLabel } from '../lib/format'
+import { money, ACCOUNT_TYPES, accountTypeLabel, EARNING_TYPES, pct, interestFor, nextInterestDate, daysBetween } from '../lib/format'
 import Modal from '../components/Modal'
 import Icon from '../components/Icon'
 import LabelChip from '../components/LabelChip'
@@ -97,6 +97,7 @@ export default function Accounts() {
                       <div className="list-title row" style={{ gap: 7 }}>{a.name}{labelOf(a.label_id) && <LabelChip label={labelOf(a.label_id)} size="sm" />}</div>
                       <div className="list-sub">
                         {card ? `${a.credit_limit ? 'Disponible ' + money(Number(a.credit_limit) + b) : 'Tarjeta'}${a.due_day ? ' · vence ' + shortDate(cardDueDate(a.due_day)) : ''}` : `${accountTypeLabel(a.type)}${a.bank ? ' · ' + a.bank : ''}`}
+                        {Number(a.interest_rate) > 0 ? ` · rinde ${pct(a.interest_rate)}% anual` : ''}
                         {a.exclude_from_total ? ' · fuera del total' : ''}
                       </div>
                     </div>
@@ -156,6 +157,7 @@ function AccountDetail({ a, bal, txns, accounts, onClose, onEdit, onArchive, onP
             : <div className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>Poné el día de vencimiento para que aparezca en Pagos y en tu calendario.</div>}
         </div>
       )}
+      {Number(a.interest_rate) > 0 && <InterestCard a={a} bal={bal} txns={mine} />}
       {card && <button className="btn btn-primary btn-block" style={{ marginBottom: 14 }} onClick={onPay}><Icon name="credit-card" size={16} /> Pagar tarjeta</button>}
 
       <div className="section-label" style={{ marginTop: 0 }}>{card && cycleStart ? 'Compras del ciclo' : 'Últimos movimientos'}</div>
@@ -183,6 +185,29 @@ function AccountDetail({ a, bal, txns, accounts, onClose, onEdit, onArchive, onP
   )
 }
 
+function InterestCard({ a, bal, txns }) {
+  const today = todayLocal()
+  const next = nextInterestDate(a.interest_since || today, a.interest_day)
+  const days = next ? daysBetween(a.interest_since || today, next) : 0
+  const est = interestFor(bal, a.interest_rate, days)
+  const monthly = interestFor(bal, a.interest_rate, 365 / 12)
+  const year = interestFor(bal, a.interest_rate, 365)
+  const earned = txns.filter((t) => t.source === 'interest' && t.account_id === a.id)
+  return (
+    <div className="card" style={{ background: 'var(--bg-elevated)', padding: 14, marginBottom: 14 }}>
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <span className="row" style={{ gap: 6, fontWeight: 600 }}><Icon name="trending-up" size={16} /> Rinde {pct(a.interest_rate)}% anual</span>
+        <span className="text-muted" style={{ fontSize: 12.5 }}>se acredita el día {a.interest_day}</span>
+      </div>
+      {next && <div className="row between" style={{ fontSize: 13.5 }}><span className="text-2">Próximo ({shortDate(next)}, {days} días)</span><strong className="text-accent">+{money(est)}</strong></div>}
+      <div className="row between" style={{ fontSize: 13.5, marginTop: 6 }}><span className="text-2">Por mes, aprox.</span><span>+{money(monthly)}</span></div>
+      <div className="row between" style={{ fontSize: 13.5, marginTop: 6 }}><span className="text-2">En un año, sin tocarlo</span><span>{money(bal + year)}</span></div>
+      {earned.length > 0 && <div className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>Último rendimiento: +{money(earned[0].amount)} el {shortDate(earned[0].occurred_on)}</div>}
+      <div className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>Se suma solo como ingreso a esta cuenta. Si el extracto del fondo dice otro monto, editá ese movimiento.</div>
+    </div>
+  )
+}
+
 function AccountForm({ account, household, user, labels: initialLabels = [], onClose, onSaved }) {
   const [name, setName] = useState(account?.name || '')
   const [type, setType] = useState(account?.type || 'cash')
@@ -192,6 +217,9 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
   const [statementDay, setStatementDay] = useState(account?.statement_day || '')
   const [dueDay, setDueDay] = useState(account?.due_day || '')
   const [group, setGroup] = useState(account?.group_name || '')
+  const [earns, setEarns] = useState(Number(account?.interest_rate) > 0)
+  const [rate, setRate] = useState(account?.interest_rate ? pct(account.interest_rate) : '')
+  const [interestDay, setInterestDay] = useState(account?.interest_day || '')
   const [color, setColor] = useState(account?.color || '#0b3b8f')
   const [exclude, setExclude] = useState(account?.exclude_from_total || false)
   const [labels, setLabels] = useState(initialLabels)
@@ -226,6 +254,11 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
       due_day: type === 'credit_card' ? (parseInt(dueDay, 10) || null) : null,
       group_name: group.trim() || null,
     }
+    const r = parseFloat(String(rate).replace(',', '.'))
+    const canEarn = EARNING_TYPES.includes(type) && earns
+    if (canEarn && !(r > 0)) { setBusy(false); return setErr('Poné la tasa anual, ej: 6,5') }
+    payload.interest_rate = canEarn ? r : null
+    payload.interest_day = canEarn ? (Math.min(31, parseInt(interestDay, 10)) || null) : null
     let error
     if (account) ({ error } = await supabase.from('accounts').update(payload).eq('id', account.id))
     else ({ error } = await supabase.from('accounts').insert(payload))
@@ -270,6 +303,26 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
           </div>
         )}
         {type === 'credit_card' && <p className="text-muted" style={{ fontSize: 12, marginTop: -6, marginBottom: 12 }}>Si la tarjeta tiene deuda, el vencimiento aparece en Pagos, en el calendario y te aviso 2 días antes. El saldo inicial es lo que debés hoy, en negativo (ej: -1500000).</p>}
+        {EARNING_TYPES.includes(type) && (
+          <div className="card" style={{ background: 'var(--bg-elevated)', padding: 12, marginBottom: 12 }}>
+            <label className="row" style={{ gap: 8, fontSize: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={earns} onChange={(e) => setEarns(e.target.checked)} />
+              Genera rendimiento (fondo mutuo, ahorro con interés)
+            </label>
+            {earns && (<>
+              <div className="grid grid-2" style={{ gap: 12, marginTop: 10 }}>
+                <div className="field" style={{ marginBottom: 0 }}><label>Tasa anual (%)</label><input className="form-input" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Ej: 6,5" /></div>
+                <div className="field" style={{ marginBottom: 0 }}><label>Día que se acredita</label><input className="form-input" inputMode="numeric" value={interestDay} onChange={(e) => setInterestDay(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))} placeholder={'Ej: ' + new Date().getDate()} /></div>
+              </div>
+              {(() => {
+                const r = parseFloat(String(rate).replace(',', '.'))
+                const b = parseInt(String(opening).replace(/[^0-9-]/g, ''), 10) || 0
+                return r > 0 && b > 0 ? <p className="text-muted" style={{ fontSize: 12, margin: '8px 0 0' }}>Con {money(b)} serían unos <strong className="text-accent">+{money(interestFor(b, r, 365 / 12))}</strong> por mes. Cada mes se suma solo como ingreso y el siguiente se calcula sobre el saldo nuevo.</p>
+                  : <p className="text-muted" style={{ fontSize: 12, margin: '8px 0 0' }}>Cada mes se suma solo el rendimiento como ingreso a esta cuenta.</p>
+              })()}
+            </>)}
+          </div>
+        )}
         <div className="field"><label>Grupo (opcional)</label><input className="form-input" value={group} onChange={(e) => setGroup(e.target.value)} placeholder="Ej: Negocio, Personal, Bia" /></div>
         <div className="field">
           <label>Color</label>

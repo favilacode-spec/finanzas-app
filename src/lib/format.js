@@ -64,13 +64,47 @@ export const ACCOUNT_TYPES = [
   { value: 'checking', label: 'Cuenta corriente', icon: 'landmark' },
   { value: 'savings', label: 'Ahorros', icon: 'piggy-bank' },
   { value: 'credit_card', label: 'Tarjeta de crédito', icon: 'credit-card' },
-  { value: 'investment', label: 'Inversión', icon: 'trending-up' },
+  { value: 'investment', label: 'Inversión / Fondo mutuo', icon: 'trending-up' },
   { value: 'loan', label: 'Préstamo', icon: 'hand-coins' },
   { value: 'other', label: 'Otro', icon: 'wallet' },
 ]
 
 export function accountTypeLabel(v) {
   return ACCOUNT_TYPES.find((t) => t.value === v)?.label || 'Cuenta'
+}
+
+// Cuentas que pueden generar rendimiento
+export const EARNING_TYPES = ['savings', 'investment', 'checking', 'other']
+
+// "6,5" a partir de 6.5
+export function pct(n) {
+  return String(Math.round(Number(n || 0) * 100) / 100).replace('.', ',')
+}
+
+// Rendimiento estimado de un saldo en `days` días a una tasa efectiva anual (%)
+export function interestFor(balance, ratePct, days) {
+  const b = Number(balance || 0), r = Number(ratePct || 0)
+  if (b <= 0 || r <= 0 || days <= 0) return 0
+  return Math.round(b * (Math.pow(1 + r / 100, days / 365) - 1))
+}
+
+// Próxima fecha de acreditación (YYYY-MM-DD) después de `since`
+export function nextInterestDate(since, day) {
+  if (!since || !day) return null
+  const [y, m, d] = since.split('-').map(Number)
+  const at = (yy, mm) => {
+    const last = new Date(yy, mm + 1, 0).getDate()
+    const dt = new Date(yy, mm, Math.min(day, last))
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  }
+  let due = at(y, m - 1)
+  if (due <= since) due = at(y, m)
+  return due
+}
+
+export function daysBetween(a, b) {
+  const [y1, m1, d1] = a.split('-').map(Number), [y2, m2, d2] = b.split('-').map(Number)
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000)
 }
 
 // compacto para tarjetitas chicas: ₲ 850.000 · ₲ 4,86 M

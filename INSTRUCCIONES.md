@@ -94,11 +94,12 @@ manda solos a la app.
 // CONFIG: pegá tu token (Ajustes → Apple Pay → token) y el remitente/asunto de tu banco
 const TOKEN = 'PEGA_TU_TOKEN_AQUI';
 const URL = 'https://yvivibcczpirjzipuiqb.supabase.co/functions/v1/email-ingest';
-// UENO Bank — captura los 3 tipos de correo:
-//   "Recibiste una transferencia"               => INGRESO
-//   "Pago de servicio" / "Pagaste tu servicio"  => GASTO
-//   "Transferencia realizada"                   => GASTO (enviada)
-const BUSQUEDA = 'from:(algoueno@ueno.com.py) ("Recibiste una transferencia" OR "Pago de servicio" OR "Pagaste tu servicio" OR "Transferencia realizada" OR "Enviamos tu transferencia") newer_than:2d';
+// UENO Bank — captura TODOS los avisos de movimientos de ueno:
+//   transferencias recibidas (ingreso), transferencias enviadas, pagos de
+//   cualquier servicio (ANDE, ESSAP, Tigo, Personal, Claro, Copaco, etc.),
+//   pagos con QR, débitos automáticos y suscripciones (gasto).
+//   La app descarta sola la publicidad.
+const BUSQUEDA = 'from:(algoueno@ueno.com.py) newer_than:2d';
 
 function revisarCorreos() {
   const hilos = GmailApp.search(BUSQUEDA);
@@ -122,7 +123,7 @@ function revisarCorreos() {
 }
 ```
 
-3. Cambiá solo el `TOKEN` (la `URL` y la `BUSQUEDA` ya están listas para UENO + ANDE/Claro).
+3. Cambiá solo el `TOKEN` (la `URL` y la `BUSQUEDA` ya están listas para todos los avisos de UENO).
 4. Arriba, **Ejecutar** una vez para autorizar permisos de Gmail.
 5. Reloj (Activadores) → **Añadir activador** → función `revisarCorreos`,
    evento por tiempo, cada **5 o 10 minutos**. Guardá.

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -17,10 +18,34 @@ import Inbox from './pages/Inbox'
 import Insights from './pages/Insights'
 import Settings from './pages/Settings'
 
+// Pantalla de carga: si tarda demasiado, ofrece reintentar en vez de quedarse girando
+function Cargando({ lento, onRetry }) {
+  return (
+    <div className="center-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, textAlign: 'center', padding: 24 }}>
+      <div className="spinner" />
+      {lento && (
+        <>
+          <div className="text-muted" style={{ fontSize: 14 }}>Está tardando más de lo normal…</div>
+          <button className="btn btn-primary" onClick={onRetry}>Reintentar</button>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Protected({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return <div className="center-screen"><div className="spinner" /></div>
+  const { user, loading, household, loadError, refresh } = useAuth()
+  const [lento, setLento] = useState(false)
+  const esperando = loading || (user && !household && loadError)
+  useEffect(() => {
+    if (!esperando) { setLento(false); return }
+    const t = setTimeout(() => setLento(true), 7000)
+    return () => clearTimeout(t)
+  }, [esperando])
+  const reintentar = () => { if (loading) window.location.reload(); else { setLento(false); refresh() } }
+  if (loading) return <Cargando lento={lento} onRetry={reintentar} />
   if (!user) return <Navigate to="/login" replace />
+  if (!household && loadError) return <Cargando lento onRetry={reintentar} />
   return children
 }
 

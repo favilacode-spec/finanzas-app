@@ -8,6 +8,7 @@ import { todayLocal } from '../lib/dates'
 import { quickParse } from '../lib/quickparse'
 import { compressImage, dataUrlToBlob } from '../lib/image'
 import { notifyChange } from '../lib/events'
+import { loadSobres, moverSobre, buildSobres } from '../lib/sobres'
 
 const DRAFT_KEY = 'mb-tx-draft'
 const readDraft = () => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') } catch { return null } }
@@ -44,6 +45,9 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const fileRef = useRef(null)
+  const [sobres, setSobres] = useState(buildSobres())
+  const [sobreIn, setSobreIn] = useState(init.sobreIn || '')
+  const [sobreOut, setSobreOut] = useState('')
 
   useEffect(() => {
     if (!household) return
@@ -55,6 +59,7 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
         else if (!accountId && data?.length) setAccountId(household.default_account_id && data.some((a) => a.id === household.default_account_id) ? household.default_account_id : data[0].id)
       })
     supabase.from('categories').select('*').order('name').then(({ data }) => setCategories(data || []))
+    if (!edit) loadSobres().then(setSobres)
     supabase.from('transactions').select('tags').neq('tags', '{}').limit(400)
       .then(({ data }) => setAllTags([...new Set((data || []).flatMap((t) => t.tags || []))].sort()))
   }, [household]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,7 +137,17 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
     }
     let error
     if (edit) ({ error } = await supabase.from('transactions').update(payload).eq('id', edit.id))
-    else ({ error } = await supabase.from('transactions').insert({ ...payload, created_by: user.id }))
+    else {
+      let created
+      ;({ data: created, error } = await supabase.from('transactions').insert({ ...payload, created_by: user.id }).select('id').single())
+      if (!error && created) {
+        const base = { householdId: household.id, userId: user.id, date, transactionId: created.id, note: payee || null }
+        const sin = sobresIn.find((x) => x.key === sobreIn)
+        const sout = sobresOut.find((x) => x.key === sobreOut)
+        if (sin) await moverSobre({ ...base, sobre: sin, amount: amt })
+        if (sout) await moverSobre({ ...base, sobre: sout, amount: -amt })
+      }
+    }
     setBusy(false)
     if (error) return setErr(error.message)
     if (!edit && !prefill) clearDraft()
@@ -140,6 +155,12 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
     onSaved?.()
     onClose()
   }
+
+  // Sobres (metas y proyectos) de la cuenta que recibe o de la que sale la plata
+  const cuentaEntra = type === 'transfer' ? toAccount : type === 'income' ? accountId : ''
+  const cuentaSale = type === 'income' ? '' : accountId
+  const sobresIn = edit || !cuentaEntra ? [] : sobres.deCuenta(cuentaEntra)
+  const sobresOut = edit || !cuentaSale ? [] : sobres.deCuenta(cuentaSale)
 
   const suggestions = allTags.filter((t) => !tags.includes(t) && (!tagText || t.toLowerCase().includes(tagText.toLowerCase()))).slice(0, 8)
 
@@ -194,6 +215,25 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
             </div>
           )}
         </div>
+
+        {sobresOut.length > 0 && (
+          <div className="field">
+            <label>¿De qué sobre sale esta plata?</label>
+            <select className="form-select" value={sobreOut} onChange={(e) => setSobreOut(e.target.value)}>
+              <option value="">De lo sin asignar</option>
+              {sobresOut.map((x) => <option key={x.key} value={x.key}>{x.kind === 'goal' ? 'Meta' : 'Proyecto'}: {x.name}</option>)}
+            </select>
+          </div>
+        )}
+        {sobresIn.length > 0 && (
+          <div className="field">
+            <label>¿Para qué es esta plata?</label>
+            <select className="form-select" value={sobreIn} onChange={(e) => setSobreIn(e.target.value)}>
+              <option value="">Sin asignar (lo reparto después)</option>
+              {sobresIn.map((x) => <option key={x.key} value={x.key}>{x.kind === 'goal' ? 'Meta' : 'Proyecto'}: {x.name}</option>)}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-2" style={{ gap: 12 }}>
           <div className="field">

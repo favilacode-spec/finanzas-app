@@ -11,6 +11,8 @@ import Tile, { hexA } from '../components/Tile'
 import Ring from '../components/Ring'
 import MoneyInput from '../components/MoneyInput'
 import IconPicker from '../components/IconPicker'
+import SobreModal from '../components/SobreModal'
+import { KIND_LABEL } from '../lib/sobres'
 import Icon, { GOAL_ICONS } from '../components/Icon'
 
 // Cálculos del "asistente de meta"
@@ -65,7 +67,8 @@ export default function Goals() {
   useEffect(() => { if (household) load() }, [household]) // eslint-disable-line react-hooks/exhaustive-deps
   useOnChange(load)
 
-  const currentOf = (g) => g.account_id ? Number(balances.find((b) => b.account_id === g.account_id)?.balance || 0) : Number(g.current_amount || 0)
+  // Meta vinculada a una cuenta = sobre: avanza solo con lo que le asignás
+  const currentOf = (g) => g.account_id ? contrib.filter((c) => c.goal_id === g.id).reduce((s, c) => s + Number(c.amount), 0) : Number(g.current_amount || 0)
 
   const active = goals.filter((g) => !g.archived && !goalStats(g, currentOf(g)).done)
   const finished = goals.filter((g) => g.archived || goalStats(g, currentOf(g)).done)
@@ -189,7 +192,7 @@ function GoalDetail({ g, current, contribs, accounts, household, user, onClose, 
         <div style={{ flex: 1 }}>
           <div className="amount-big" style={{ fontSize: 26 }}>{money(st.cur)}</div>
           <div className="text-muted" style={{ fontSize: 13 }}>de {money(st.target)} · faltan {money(st.left)}</div>
-          {linked && <div className="badge" style={{ marginTop: 6 }}><Link2 size={12} /> Sigue el saldo de {linked.name}</div>}
+          {linked && <div className="badge" style={{ marginTop: 6 }}><Link2 size={12} /> Sobre en {linked.name}</div>}
         </div>
       </div>
 
@@ -216,7 +219,7 @@ function GoalDetail({ g, current, contribs, accounts, household, user, onClose, 
           {contribs.map((c) => (
             <div className="list-row" key={c.id} style={{ minHeight: 48 }}>
               <Tile icon={c.amount < 0 ? 'hand-coins' : 'piggy-bank'} color={c.amount < 0 ? '#ff6b6b' : color} size="sm" />
-              <div className="list-main"><div className="list-title" style={{ fontSize: 14 }}>{c.note || (c.amount < 0 ? 'Retiro' : 'Aporte')}</div><div className="list-sub">{shortDate(c.contributed_on)}</div></div>
+              <div className="list-main"><div className="list-title" style={{ fontSize: 14 }}>{c.note || KIND_LABEL[c.kind] || (c.amount < 0 ? 'Retiro' : 'Aporte')}</div><div className="list-sub">{shortDate(c.contributed_on)}{c.kind === 'interes' ? ' · rendimiento del fondo' : ''}</div></div>
               <span className={`list-amount ${c.amount < 0 ? 'amount-neg' : 'amount-pos'}`}>{c.amount < 0 ? '−' : '+'}{money(Math.abs(c.amount))}</span>
               <button className="icon-btn plain" onClick={() => delContrib(c)}><X size={14} /></button>
             </div>
@@ -230,17 +233,17 @@ function GoalDetail({ g, current, contribs, accounts, household, user, onClose, 
         <button className="btn btn-danger btn-sm" onClick={del}><Trash2 size={14} /></button>
       </div>
 
-      {mode && <ContribModal g={g} mode={mode} accounts={accounts} household={household} user={user} onClose={() => setMode(null)} onDone={() => { setMode(null); onChanged() }} />}
+      {mode && linked && <SobreModal sobre={{ kind: 'goal', id: g.id, name: g.name, accountId: g.account_id, accountName: linked.name }} mode={mode} onClose={() => setMode(null)} onDone={onChanged} />}
+      {mode && !linked && <ContribModal g={g} mode={mode} household={household} user={user} onClose={() => setMode(null)} onDone={() => { setMode(null); onChanged() }} />}
     </Modal>
   )
 }
 
-function ContribModal({ g, mode, accounts, household, user, onClose, onDone }) {
+// Meta sin cuenta: se lleva a mano
+function ContribModal({ g, mode, household, user, onClose, onDone }) {
   const [amount, setAmount] = useState(0)
   const [date, setDate] = useState(todayLocal())
   const [note, setNote] = useState('')
-  const others = accounts.filter((a) => a.id !== g.account_id)
-  const [fromAcc, setFromAcc] = useState(g.account_id ? (others[0]?.id || '') : '')
   const [busy, setBusy] = useState(false)
   const sign = mode === 'remove' ? -1 : 1
 
@@ -249,17 +252,8 @@ function ContribModal({ g, mode, accounts, household, user, onClose, onDone }) {
     const amt = Math.round(Number(amount) || 0)
     if (!amt) return
     setBusy(true)
-    // si la meta sigue una cuenta, movemos la plata de verdad con una transferencia
-    if (g.account_id && fromAcc) {
-      await supabase.from('transactions').insert({
-        household_id: household.id, type: 'transfer', amount: amt, currency: 'PYG', occurred_on: date,
-        account_id: sign > 0 ? fromAcc : g.account_id, transfer_account_id: sign > 0 ? g.account_id : fromAcc,
-        payee: `${sign > 0 ? 'Aporte' : 'Retiro'} meta: ${g.name}`, note: note || null, created_by: user.id, source: 'manual',
-      })
-    } else if (!g.account_id) {
-      await supabase.from('goals').update({ current_amount: Math.max(0, Number(g.current_amount || 0) + sign * amt) }).eq('id', g.id)
-    }
-    await supabase.from('goal_contributions').insert({ household_id: household.id, goal_id: g.id, amount: sign * amt, contributed_on: date, note: note || null, created_by: user.id })
+    await supabase.from('goals').update({ current_amount: Math.max(0, Number(g.current_amount || 0) + sign * amt) }).eq('id', g.id)
+    await supabase.from('goal_contributions').insert({ household_id: household.id, goal_id: g.id, amount: sign * amt, contributed_on: date, note: note || null, created_by: user.id, kind: sign > 0 ? 'aporte' : 'retiro' })
     setBusy(false); notifyChange(); onDone()
   }
 
@@ -267,15 +261,6 @@ function ContribModal({ g, mode, accounts, household, user, onClose, onDone }) {
     <Modal title={mode === 'remove' ? `Retirar de "${g.name}"` : `Aportar a "${g.name}"`} onClose={onClose}>
       <form onSubmit={save}>
         <div className="field"><label>Monto</label><MoneyInput value={amount} onChange={setAmount} big autoFocus /></div>
-        {g.account_id && (
-          <div className="field">
-            <label>{mode === 'remove' ? 'Devolver a la cuenta' : 'Sacar la plata de'}</label>
-            <select className="form-select" value={fromAcc} onChange={(e) => setFromAcc(e.target.value)}>
-              <option value="">No mover plata (solo anotar)</option>
-              {others.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </div>
-        )}
         <div className="grid grid-2" style={{ gap: 12 }}>
           <div className="field"><label>Fecha</label><input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label>Nota</label><input className="form-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opcional" /></div>
@@ -344,8 +329,9 @@ function GoalForm({ goal, household, accounts, onClose, onSaved }) {
           <label>¿Dónde guardás esta plata?</label>
           <select className="form-select" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
             <option value="">Llevo la cuenta a mano (aportes)</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>Sigue el saldo de: {a.name}</option>)}
+            {accounts.map((a) => <option key={a.id} value={a.id}>Sobre dentro de: {a.name}</option>)}
           </select>
+          {accountId && <div className="text-muted" style={{ fontSize: 11.5, marginTop: 5 }}>La meta avanza solo con la plata que le asignes. Podés tener varias metas y proyectos en la misma cuenta, y el rendimiento se reparte solo.</div>}
         </div>
         {!accountId && <div className="field"><label>Ya tengo ahorrado</label><MoneyInput value={current} onChange={setCurrent} /></div>}
         <div className="field"><label>Ícono y color</label><IconPicker icons={GOAL_ICONS} icon={icon} color={color} onIcon={setIcon} onColor={setColor} /></div>

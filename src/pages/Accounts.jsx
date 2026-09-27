@@ -8,6 +8,8 @@ import Icon from '../components/Icon'
 import LabelChip from '../components/LabelChip'
 import Tile from '../components/Tile'
 import TransactionModal from '../components/TransactionModal'
+import SobreModal from '../components/SobreModal'
+import { buildSobres } from '../lib/sobres'
 import { useOnChange } from '../lib/events'
 import { todayLocal, addDays, shortDate, cardDueDate, cardCycleStart, dueLabel } from '../lib/dates'
 
@@ -25,15 +27,20 @@ export default function Accounts() {
   const [showForm, setShowForm] = useState(false)
   const [detail, setDetail] = useState(null)
   const [pay, setPay] = useState(null)
+  const [sobres, setSobres] = useState(buildSobres())
 
   const load = async () => {
     const since = addDays(todayLocal(), -70)
-    const [acc, bal, lab, tx] = await Promise.all([
+    const [acc, bal, lab, tx, gl, tr, gc] = await Promise.all([
       supabase.from('accounts').select('*').order('sort').order('created_at'),
       supabase.from('account_balances').select('*'),
       supabase.from('account_labels').select('*').order('name'),
       supabase.from('transactions').select('*').gte('occurred_on', since).order('occurred_on', { ascending: false }),
+      supabase.from('goals').select('id,name,account_id,archived,color,icon,target_amount'),
+      supabase.from('trips').select('id,name,saved_account_id,archived'),
+      supabase.from('goal_contributions').select('goal_id,trip_id,amount'),
     ])
+    setSobres(buildSobres(gl.data || [], tr.data || [], gc.data || []))
     setAccounts(acc.data || []); setBalances(bal.data || []); setLabels(lab.data || []); setTxns(tx.data || [])
     setLoading(false)
   }
@@ -111,7 +118,7 @@ export default function Accounts() {
       ))}
 
       {openAcc && (
-        <AccountDetail a={openAcc} bal={balOf(openAcc.id)} txns={txns} accounts={accounts}
+        <AccountDetail a={openAcc} bal={balOf(openAcc.id)} txns={txns} accounts={accounts} sobres={sobres.deCuenta(openAcc.id)}
           onClose={() => setDetail(null)} onEdit={() => { setEdit(openAcc); setShowForm(true); setDetail(null) }}
           onArchive={() => toggleArchive(openAcc)} onPay={() => { setPay(openAcc); setDetail(null) }}
           onMove={(dir) => move(openAcc, dir, accounts.filter((x) => !x.archived && groupName(x) === groupName(openAcc)))} />
@@ -122,7 +129,8 @@ export default function Accounts() {
   )
 }
 
-function AccountDetail({ a, bal, txns, accounts, onClose, onEdit, onArchive, onPay, onMove }) {
+function AccountDetail({ a, bal, txns, accounts, sobres = [], onClose, onEdit, onArchive, onPay, onMove }) {
+  const [sobreSel, setSobreSel] = useState(null)
   const card = a.type === 'credit_card'
   const mine = txns.filter((t) => t.account_id === a.id || t.transfer_account_id === a.id)
   const cycleStart = card && a.statement_day ? cardCycleStart(a.statement_day) : null
@@ -158,6 +166,8 @@ function AccountDetail({ a, bal, txns, accounts, onClose, onEdit, onArchive, onP
         </div>
       )}
       {Number(a.interest_rate) > 0 && <InterestCard a={a} bal={bal} txns={mine} />}
+      {sobres.length > 0 && <SobresCard a={a} bal={bal} sobres={sobres} onPick={(s) => setSobreSel(s)} />}
+      {sobreSel && <SobreModal sobre={{ ...sobreSel, accountName: a.name }} mode="add" onClose={() => setSobreSel(null)} />}
       {card && <button className="btn btn-primary btn-block" style={{ marginBottom: 14 }} onClick={onPay}><Icon name="credit-card" size={16} /> Pagar tarjeta</button>}
 
       <div className="section-label" style={{ marginTop: 0 }}>{card && cycleStart ? 'Compras del ciclo' : 'Últimos movimientos'}</div>
@@ -182,6 +192,34 @@ function AccountDetail({ a, bal, txns, accounts, onClose, onEdit, onArchive, onP
         <button className="btn btn-secondary btn-sm" onClick={onArchive}>{a.archived ? <><ArchiveRestore size={14} /> Restaurar</> : <><Archive size={14} /> Archivar</>}</button>
       </div>
     </Modal>
+  )
+}
+
+// Cómo está repartida la plata de esta cuenta entre metas y proyectos
+function SobresCard({ a, bal, sobres, onPick }) {
+  const asignado = sobres.reduce((s, x) => s + x.saldo, 0)
+  const libre = bal - asignado
+  return (
+    <div className="card" style={{ background: 'var(--bg-elevated)', padding: 14, marginBottom: 14 }}>
+      <div className="row between" style={{ marginBottom: 6 }}>
+        <span style={{ fontWeight: 600 }}>Sobres</span>
+        <span className="text-muted" style={{ fontSize: 12.5 }}>tocá uno para ponerle plata</span>
+      </div>
+      <div className="list">
+        {sobres.map((s) => (
+          <div className="list-row clickable" key={s.key} style={{ minHeight: 46 }} onClick={() => onPick(s)}>
+            <Tile icon={s.icon} color={s.color} size="sm" />
+            <div className="list-main"><div className="list-title" style={{ fontSize: 14 }}>{s.name}</div><div className="list-sub">{s.kind === 'goal' ? 'Meta' : 'Proyecto'}{s.target ? ` · ${Math.min(100, Math.round((s.saldo / s.target) * 100))}% de ${money(s.target)}` : ''}</div></div>
+            <span className="list-amount">{money(s.saldo)}</span>
+          </div>
+        ))}
+        <div className="list-row" style={{ minHeight: 46 }}>
+          <Tile icon="wallet" color="#94a3b8" size="sm" />
+          <div className="list-main"><div className="list-title" style={{ fontSize: 14 }}>Sin asignar</div><div className="list-sub">{libre < 0 ? 'Asignaste más de lo que hay en la cuenta' : 'Libre para repartir'}</div></div>
+          <span className={`list-amount ${libre < 0 ? 'amount-neg' : ''}`}>{money(libre)}</span>
+        </div>
+      </div>
+    </div>
   )
 }
 

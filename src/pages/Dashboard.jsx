@@ -56,7 +56,7 @@ export default function Dashboard() {
     const today = todayLocal()
     const start = monthStart(today)
     const sixAgo = monthStart(addDays(start, -155))
-    const [acc, bal, tx, cat, allTx, lab, rec, debts, budgets, adj, goals] = await Promise.all([
+    const [acc, bal, tx, cat, allTx, lab, rec, debts, budgets, adj, goals, gc] = await Promise.all([
       supabase.from('accounts').select('*').eq('archived', false).order('sort').order('created_at'),
       supabase.from('account_balances').select('*'),
       supabase.from('transactions').select('*').gte('occurred_on', start).order('occurred_on', { ascending: false }).order('created_at', { ascending: false }),
@@ -68,13 +68,14 @@ export default function Dashboard() {
       supabase.from('budgets').select('*'),
       supabase.from('budget_adjustments').select('*').eq('month', start),
       supabase.from('goals').select('*').eq('archived', false).order('created_at'),
+      supabase.from('goal_contributions').select('goal_id,amount').not('goal_id', 'is', null),
     ])
     const cmap = {}; (cat.data || []).forEach((c) => { cmap[c.id] = c })
     const lmap = {}; (lab.data || []).forEach((l) => { lmap[l.id] = l })
     setD({
       accounts: acc.data || [], balances: bal.data || [], txns: tx.data || [], cats: cmap, labels: lmap,
       trendRows: allTx.data || [], recs: rec.data || [], debts: debts.data || [], budgets: budgets.data || [],
-      adj: adj.data || [], goals: goals.data || [],
+      adj: adj.data || [], goals: goals.data || [], goalContribs: gc.data || [],
     })
     setLoading(false)
   }
@@ -150,7 +151,7 @@ export default function Dashboard() {
     d.trendRows.forEach((t) => { const k = String(t.occurred_on).slice(0, 7); if (!tmap[k]) return; if (t.type === 'income') tmap[k].ingreso += Number(t.amount); if (t.type === 'expense') tmap[k].gasto += Number(t.amount) })
 
     const goalCards = d.goals.map((g) => {
-      const cur = g.account_id ? Math.max(0, bal(g.account_id)) : Number(g.current_amount || 0)
+      const cur = g.account_id ? Math.max(0, d.goalContribs.filter((c) => c.goal_id === g.id).reduce((s, c) => s + Number(c.amount), 0)) : Number(g.current_amount || 0)
       return { ...g, cur, pct: g.target_amount > 0 ? Math.min(100, (cur / g.target_amount) * 100) : 0 }
     })
 

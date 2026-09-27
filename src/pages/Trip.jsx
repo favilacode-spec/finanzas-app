@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Camera, Link as LinkIcon, Check, Sparkles, Settings2, Target, ArrowLeft, Plane } from 'lucide-react'
+import { Plus, Trash2, Camera, Link as LinkIcon, Check, Sparkles, Settings2, Target, ArrowLeft, Plane, PiggyBank, Minus, X } from 'lucide-react'
 import { supabase, FUNCTIONS_URL } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, amountsHidden } from '../lib/format'
 import Modal from '../components/Modal'
+import SobreModal from '../components/SobreModal'
+import { KIND_LABEL } from '../lib/sobres'
+import { shortDate } from '../lib/dates'
+import { useOnChange } from '../lib/events'
 
 const usd = (v) => amountsHidden() ? '$ •••' : '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
 
@@ -21,30 +25,32 @@ export default function Projects() {
   const { household } = useAuth()
   const [projects, setProjects] = useState([])
   const [accounts, setAccounts] = useState([])
-  const [balances, setBalances] = useState([])
+  const [contribs, setContribs] = useState([])
   const [sel, setSel] = useState(null)      // id del proyecto abierto
   const [loading, setLoading] = useState(true)
   const [newOpen, setNewOpen] = useState(false)
 
   const load = async () => {
     setLoading(true)
-    const [p, a, b] = await Promise.all([
+    const [p, a, c] = await Promise.all([
       supabase.from('trips').select('*').eq('archived', false).order('created_at'),
       supabase.from('accounts').select('id,name').eq('archived', false).order('name'),
-      supabase.from('account_balances').select('*'),
+      supabase.from('goal_contributions').select('*').not('trip_id', 'is', null).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }),
     ])
-    setProjects(p.data || []); setAccounts(a.data || []); setBalances(b.data || [])
+    setProjects(p.data || []); setAccounts(a.data || []); setContribs(c.data || [])
     setLoading(false)
   }
-  useEffect(() => { if (household) load() }, [household])
+  useEffect(() => { if (household) load() }, [household]) // eslint-disable-line react-hooks/exhaustive-deps
+  useOnChange(load)
 
   if (loading) return <div style={{ padding: 40, display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>
 
-  const balOf = (id) => balances.find((x) => x.account_id === id)?.balance || 0
+  // Proyecto vinculado a una cuenta = sobre: avanza con la plata que le asignás (en guaraníes)
+  const sobreOf = (id) => contribs.filter((c) => c.trip_id === id).reduce((s, c) => s + Number(c.amount), 0)
   const current = projects.find((p) => p.id === sel)
 
   if (current) {
-    return <ProjectDetail project={current} accounts={accounts} balOf={balOf} onBack={() => { setSel(null); load() }} onChanged={load} />
+    return <ProjectDetail project={current} accounts={accounts} sobre={sobreOf(current.id)} contribs={contribs.filter((c) => c.trip_id === current.id)} onBack={() => { setSel(null); load() }} onChanged={load} />
   }
 
   return (
@@ -62,7 +68,7 @@ export default function Projects() {
             const isUsd = p.currency === 'USD'
             const fx = Number(p.fx_rate) || 6650
             const fmt = (v) => isUsd ? usd(v) : money(v)
-            const saved = p.saved_account_id ? (isUsd ? balOf(p.saved_account_id) / fx : balOf(p.saved_account_id)) : Number(p.current_saved_usd || 0)
+            const saved = p.saved_account_id ? (isUsd ? sobreOf(p.id) / fx : sobreOf(p.id)) : Number(p.current_saved_usd || 0)
             const goal = Number(p.daily_budget_usd || 0) * Number(p.days || 0) + Number(p.other_costs_usd || 0)
             const pct = goal > 0 ? Math.min(100, (saved / goal) * 100) : 0
             const acc = accounts.find((a) => a.id === p.saved_account_id)
@@ -73,7 +79,7 @@ export default function Projects() {
                     <span className="icon-chip">{/costa rica|viaje/i.test(p.name) ? <Plane size={18} /> : <Target size={18} />}</span>
                     <div>
                       <div style={{ fontWeight: 700 }}>{p.name}</div>
-                      <div className="text-muted" style={{ fontSize: 12 }}>{acc ? `Ahorro: ${acc.name}` : 'Sin cuenta vinculada'}{p.end_date ? ` · para ${new Date(p.end_date).toLocaleDateString('es', { month: 'short', year: 'numeric' })}` : ''}</div>
+                      <div className="text-muted" style={{ fontSize: 12 }}>{acc ? `Sobre en ${acc.name}` : 'Sin cuenta vinculada'}{p.end_date ? ` · para ${new Date(p.end_date).toLocaleDateString('es', { month: 'short', year: 'numeric' })}` : ''}</div>
                     </div>
                   </span>
                   <span className="badge">{p.currency}</span>
@@ -136,7 +142,7 @@ function NewProject({ household, accounts, onClose, onSaved }) {
             <option value="">Sin vincular</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
-          <div className="text-muted" style={{ fontSize: 11.5, marginTop: 5 }}>El saldo de esa cuenta cuenta como lo ahorrado para este proyecto.</div>
+          <div className="text-muted" style={{ fontSize: 11.5, marginTop: 5 }}>Funciona como un sobre: el proyecto avanza solo con la plata que le asignes. Podés compartir la cuenta con metas y otros proyectos.</div>
         </div>
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Creando…' : 'Crear proyecto'}</button>
       </form>
@@ -145,12 +151,13 @@ function NewProject({ household, accounts, onClose, onSaved }) {
 }
 
 /* ---------------- Detalle del proyecto ---------------- */
-function ProjectDetail({ project: p, accounts, balOf, onBack, onChanged }) {
+function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChanged }) {
   const { household } = useAuth()
   const [items, setItems] = useState([])
   const [cfg, setCfg] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [ai, setAi] = useState(''); const [aiBusy, setAiBusy] = useState(false)
+  const [mover, setMover] = useState(null) // 'add' | 'remove'
 
   const isUsd = p.currency === 'USD'
   const fx = Number(p.fx_rate) || 6650
@@ -167,8 +174,8 @@ function ProjectDetail({ project: p, accounts, balOf, onBack, onChanged }) {
   const dailyTotal = Number(p.daily_budget_usd || 0) * Number(p.days || 0)
   const budget = dailyTotal + Number(p.other_costs_usd || 0) + itemsTotal
   const savedAcc = p.saved_account_id ? accounts.find((a) => a.id === p.saved_account_id) : null
-  const savedAccBal = savedAcc ? balOf(savedAcc.id) : null
-  const saved = savedAcc ? (isUsd ? savedAccBal / fx : savedAccBal) : Number(p.current_saved_usd || 0)
+  const saved = savedAcc ? (isUsd ? sobre / fx : sobre) : Number(p.current_saved_usd || 0)
+  const delContrib = async (c) => { if (!confirm('¿Borrar este movimiento del sobre?')) return; await supabase.from('goal_contributions').delete().eq('id', c.id); onChanged() }
   const remaining = Math.max(0, budget - saved)
   const target = p.end_date ? new Date(p.end_date) : null
   const now = new Date()
@@ -225,7 +232,7 @@ function ProjectDetail({ project: p, accounts, balOf, onBack, onChanged }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="row between wrap" style={{ gap: 8 }}>
           <div className="stat-label">Ahorrado</div>
-          {savedAcc && <span className="badge">Cuenta: {savedAcc.name}</span>}
+          {savedAcc && <span className="badge">Sobre en {savedAcc.name}</span>}
         </div>
         <div className="stat-value" style={{ fontSize: 30 }}>{fmt(saved)}</div>
         <div className="text-2" style={{ fontSize: 14 }}>{alt(saved)}</div>
@@ -239,6 +246,28 @@ function ProjectDetail({ project: p, accounts, balOf, onBack, onChanged }) {
           </>
         )}
       </div>
+
+      {savedAcc && (
+        <>
+          <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setMover('add')}><PiggyBank size={17} /> Poner plata</button>
+            <button className="btn btn-secondary" onClick={() => setMover('remove')}><Minus size={16} /> Sacar</button>
+          </div>
+          {contribs.length > 0 && (
+            <div className="card" style={{ marginBottom: 16, paddingTop: 6, paddingBottom: 6 }}>
+              <div className="list">
+                {contribs.slice(0, 8).map((c) => (
+                  <div className="list-row" key={c.id} style={{ minHeight: 46 }}>
+                    <div className="list-main"><div className="list-title" style={{ fontSize: 14 }}>{c.note || KIND_LABEL[c.kind] || 'Aporte'}</div><div className="list-sub">{shortDate(c.contributed_on)}</div></div>
+                    <span className={`list-amount ${c.amount < 0 ? 'amount-neg' : 'amount-pos'}`}>{c.amount < 0 ? '−' : '+'}{money(Math.abs(c.amount))}</span>
+                    <button className="icon-btn plain" onClick={() => delContrib(c)}><X size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
@@ -310,6 +339,7 @@ function ProjectDetail({ project: p, accounts, balOf, onBack, onChanged }) {
         ))}
       </div>
 
+      {mover && savedAcc && <SobreModal sobre={{ kind: 'trip', id: p.id, name: p.name, accountId: savedAcc.id, accountName: savedAcc.name }} mode={mover} onClose={() => setMover(null)} onDone={onChanged} />}
       {cfg && <ProjectConfig project={p} accounts={accounts} onClose={() => setCfg(false)} onSaved={() => { setCfg(false); onChanged() }} />}
       {addOpen && <ItemForm project={p} household={household} onClose={() => setAddOpen(false)} onSaved={load} />}
     </div>

@@ -158,6 +158,8 @@ function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChange
   const [addOpen, setAddOpen] = useState(false)
   const [ai, setAi] = useState(''); const [aiBusy, setAiBusy] = useState(false)
   const [mover, setMover] = useState(null) // 'add' | 'remove'
+  const [recs, setRecs] = useState([])
+  const [recOpen, setRecOpen] = useState(false)
 
   const isUsd = p.currency === 'USD'
   const fx = Number(p.fx_rate) || 6650
@@ -167,8 +169,16 @@ function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChange
   const load = async () => {
     const { data } = await supabase.from('trip_items').select('*').eq('trip_id', p.id).order('created_at')
     setItems(data || [])
+    const { data: r } = await supabase.from('trip_receivables').select('*').eq('trip_id', p.id).order('created_at')
+    setRecs(r || [])
   }
   useEffect(() => { load() }, [p.id])
+
+  // "A favor": plata que me deben (ej. en Costa Rica). No toca cuentas ni el sobre.
+  const recPending = recs.filter((r) => !r.collected).reduce((s, r) => s + Number(r.amount || 0), 0)
+  const recCollected = recs.filter((r) => r.collected).reduce((s, r) => s + Number(r.amount || 0), 0)
+  const delRec = async (id) => { if (!confirm('¿Borrar este cobro?')) return; await supabase.from('trip_receivables').delete().eq('id', id); load() }
+  const toggleRec = async (r) => { await supabase.from('trip_receivables').update({ collected: !r.collected, collected_at: !r.collected ? new Date().toISOString() : null }).eq('id', r.id); load() }
 
   const itemsTotal = items.reduce((s, i) => s + Number(i.cost_usd || 0), 0)
   const dailyTotal = Number(p.daily_budget_usd || 0) * Number(p.days || 0)
@@ -177,6 +187,7 @@ function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChange
   const saved = savedAcc ? (isUsd ? sobre / fx : sobre) : Number(p.current_saved_usd || 0)
   const delContrib = async (c) => { if (!confirm('¿Borrar este movimiento del sobre?')) return; await supabase.from('goal_contributions').delete().eq('id', c.id); onChanged() }
   const remaining = Math.max(0, budget - saved)
+  const remainingConFavor = Math.max(0, budget - saved - recPending)
   const target = p.end_date ? new Date(p.end_date) : null
   const now = new Date()
   const monthsLeft = target ? Math.max(1, (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth())) : 1
@@ -238,9 +249,9 @@ function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChange
         <div className="text-2" style={{ fontSize: 14 }}>{alt(saved)}</div>
         {budget > 0 && (
           <>
-            <div className="progress" style={{ marginTop: 12 }}><span style={{ width: Math.min(100, (saved / budget) * 100) + '%', background: '#e7e7ea' }} /></div>
+            <div className="progress" style={{ marginTop: 12, display: 'flex' }}><span style={{ width: Math.min(100, (saved / budget) * 100) + '%', background: '#e7e7ea' }} />{recPending > 0 && <span style={{ width: Math.min(100 - Math.min(100, (saved / budget) * 100), (recPending / budget) * 100) + '%', background: '#6b8afd', opacity: 0.6 }} />}</div>
             <div className="row between" style={{ marginTop: 7, fontSize: 12.5 }}>
-              <span className="text-2">{((saved / budget) * 100).toFixed(0)}% de la meta</span>
+              <span className="text-2">{((saved / budget) * 100).toFixed(0)}% de la meta{recPending > 0 ? ` · +${fmt(recPending)} a favor` : ''}</span>
               <span className="text-muted">Meta: {fmt(budget)}</span>
             </div>
           </>
@@ -268,6 +279,39 @@ function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChange
           )}
         </>
       )}
+
+      <div className="card card-pad-0" style={{ marginBottom: 16 }}>
+        <div style={{ padding: '14px 18px' }} className="row between">
+          <div>
+            <div className="card-title" style={{ margin: 0 }}>A favor · por cobrar</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>Plata que me deben y recupero acá. No es del fondo mutuo ni del sobre.</div>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setRecOpen(true)}><Plus size={15} /> Agregar</button>
+        </div>
+        {recs.length === 0 ? (
+          <div className="empty-state" style={{ padding: 28 }}>Todavía no cargaste nada por cobrar.</div>
+        ) : (
+          <>
+            {recs.map((r) => (
+              <div key={r.id} className="row between" style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', gap: 12, opacity: r.collected ? 0.55 : 1 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, textDecoration: r.collected ? 'line-through' : 'none' }}>{r.concept}</div>
+                  <div className="text-muted" style={{ fontSize: 12.5 }}>{fmt(r.amount)} · {alt(r.amount)}{r.collected ? ' · cobrado' : ''}</div>
+                </div>
+                <div className="row" style={{ gap: 4 }}>
+                  <button className="icon-btn" onClick={() => toggleRec(r)} title="Marcar cobrado"><Check size={15} /></button>
+                  <button className="icon-btn" onClick={() => delRec(r.id)}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+            <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
+              <div className="row between" style={{ fontSize: 13 }}><span className="text-2">Por cobrar</span><b>{fmt(recPending)}</b></div>
+              {recCollected > 0 && <div className="row between" style={{ fontSize: 13, marginTop: 4 }}><span className="text-2">Ya cobrado</span><span>{fmt(recCollected)}</span></div>}
+              {recPending > 0 && budget > 0 && <div className="row between" style={{ fontSize: 13, marginTop: 4 }}><span className="text-2">Falta aun cobrando todo</span><span>{fmt(remainingConFavor)}</span></div>}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
@@ -341,6 +385,7 @@ function ProjectDetail({ project: p, accounts, sobre, contribs, onBack, onChange
 
       {mover && savedAcc && <SobreModal sobre={{ kind: 'trip', id: p.id, name: p.name, accountId: savedAcc.id, accountName: savedAcc.name }} mode={mover} onClose={() => setMover(null)} onDone={onChanged} />}
       {cfg && <ProjectConfig project={p} accounts={accounts} onClose={() => setCfg(false)} onSaved={() => { setCfg(false); onChanged() }} />}
+      {recOpen && <ReceivableForm project={p} household={household} onClose={() => setRecOpen(false)} onSaved={load} />}
       {addOpen && <ItemForm project={p} household={household} onClose={() => setAddOpen(false)} onSaved={load} />}
     </div>
   )
@@ -396,6 +441,43 @@ function ProjectConfig({ project: p, accounts, onClose, onSaved }) {
         {!f.savedAccount && <div className="field"><label>Ya ahorrado</label><input className="form-input" inputMode="decimal" value={f.saved} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>}
         {f.currency === 'USD' && <div className="field"><label>Tipo de cambio (₲ por US$)</label><input className="form-input" inputMode="numeric" value={f.fx} onChange={(e) => set('fx', e.target.value)} placeholder="6650" /></div>}
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+      </form>
+    </Modal>
+  )
+}
+
+/* ---------------- A favor (por cobrar) ---------------- */
+function ReceivableForm({ project: p, household, onClose, onSaved }) {
+  const isUsd = p.currency === 'USD'
+  const fx = Number(p.fx_rate) || 6650
+  const [concept, setConcept] = useState('')
+  const [amount, setAmount] = useState('')
+  const [curr, setCurr] = useState(isUsd ? 'usd' : 'pyg')
+  const [busy, setBusy] = useState(false)
+  const save = async (e) => {
+    e.preventDefault()
+    if (!concept.trim()) return
+    setBusy(true)
+    const raw = parseFloat(String(amount).replace(/[^0-9.]/g, '')) || 0
+    let value = raw
+    if (isUsd && curr === 'pyg') value = raw / fx
+    if (!isUsd && curr === 'usd') value = raw * fx
+    await supabase.from('trip_receivables').insert({ trip_id: p.id, household_id: household.id, concept: concept.trim(), amount: value })
+    setBusy(false); onSaved(); onClose()
+  }
+  return (
+    <Modal title="A favor · por cobrar" onClose={onClose}>
+      <form onSubmit={save}>
+        <div className="field"><label>Quién / qué me deben</label><input className="form-input" value={concept} onChange={(e) => setConcept(e.target.value)} placeholder="Ej: Cobro pendiente en Costa Rica" autoFocus /></div>
+        <div className="field">
+          <label>Monto</label>
+          <div className="segmented" style={{ marginBottom: 8 }}>
+            <button type="button" className={curr === 'pyg' ? 'active-blue' : ''} onClick={() => setCurr('pyg')}>Guaraníes ₲</button>
+            <button type="button" className={curr === 'usd' ? 'active-blue' : ''} onClick={() => setCurr('usd')}>US$</button>
+          </div>
+          <input className="form-input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
+        </div>
+        <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Agregar'}</button>
       </form>
     </Modal>
   )

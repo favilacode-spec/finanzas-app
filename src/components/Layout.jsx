@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'reac
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, PieChart, Tags, Target, Repeat, BarChart3,
   Inbox as InboxIcon, Sparkles, Settings as Cog, CreditCard, Eye, EyeOff, Plus, CalendarDays,
-  Grid2x2, Rocket, Receipt,
+  Grid2x2, Rocket, Receipt, Landmark,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -20,6 +20,7 @@ export const NAV = [
   { to: '/metas', label: 'Metas', icon: Target },
   { to: '/viaje', label: 'Proyectos', icon: Rocket },
   { to: '/deudas', label: 'Deudas', icon: CreditCard },
+  { to: '/patrimonio', label: 'Patrimonio', icon: Landmark },
   { to: '/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/bandeja', label: 'Bandeja', icon: InboxIcon, badge: true },
   { to: '/categorias', label: 'Categorías', icon: Tags },

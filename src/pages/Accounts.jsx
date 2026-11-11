@@ -327,7 +327,7 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
             {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
-        <BankPicker value={bankId} onChange={(v) => { setBankId(v); const b = bankById(v); if (b && !name.trim()) setName(b.short) }} label="Banco o billetera" />
+        <BankPicker value={bankId} onChange={(v) => { setBankId(v); const b = bankById(v); if (b) { setColor(b.color); if (!name.trim()) setName(b.short) } }} label="Banco o billetera" />
         {type === 'credit_card' && (
           <div className="field">
             <label>Red de la tarjeta</label>

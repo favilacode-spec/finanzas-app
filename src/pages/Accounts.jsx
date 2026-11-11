@@ -7,6 +7,9 @@ import Modal from '../components/Modal'
 import Icon from '../components/Icon'
 import LabelChip from '../components/LabelChip'
 import Tile from '../components/Tile'
+import BankPicker from '../components/BankPicker'
+import BankBadge from '../components/BankBadge'
+import { RED_TARJETA, bankById } from '../lib/banks'
 import TransactionModal from '../components/TransactionModal'
 import SobreModal from '../components/SobreModal'
 import { buildSobres } from '../lib/sobres'
@@ -99,7 +102,9 @@ export default function Accounts() {
                 const card = a.type === 'credit_card'
                 return (
                   <div className="list-row clickable" key={a.id} onClick={() => setDetail(a.id)}>
-                    <Tile icon={a.icon || 'wallet'} color={a.color || '#5eead4'} />
+                    {a.bank_id
+                      ? <BankBadge bankId={a.bank_id} name={a.name} color={a.color} />
+                      : <Tile icon={a.icon || 'wallet'} color={a.color || '#5eead4'} />}
                     <div className="list-main">
                       <div className="list-title row" style={{ gap: 7 }}>{a.name}{labelOf(a.label_id) && <LabelChip label={labelOf(a.label_id)} size="sm" />}</div>
                       <div className="list-sub">
@@ -250,6 +255,8 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
   const [name, setName] = useState(account?.name || '')
   const [type, setType] = useState(account?.type || 'cash')
   const [bank, setBank] = useState(account?.bank || '')
+  const [bankId, setBankId] = useState(account?.bank_id || '')
+  const [network, setNetwork] = useState(account?.card_network || '')
   const [opening, setOpening] = useState(account?.opening_balance ? String(account.opening_balance) : '')
   const [limit, setLimit] = useState(account?.credit_limit ? String(account.credit_limit) : '')
   const [statementDay, setStatementDay] = useState(account?.statement_day || '')
@@ -285,6 +292,8 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
     const icon = ACCOUNT_TYPES.find((t) => t.value === type)?.icon || 'wallet'
     const payload = {
       household_id: household.id, name: name.trim(), type, bank: bank || null,
+      bank_id: bankId || null,
+      card_network: type === 'credit_card' ? (network || null) : null,
       opening_balance: parseInt(String(opening).replace(/[^0-9-]/g, ''), 10) || 0,
       credit_limit: type === 'credit_card' ? (parseInt(String(limit).replace(/[^0-9]/g, ''), 10) || null) : null,
       color, icon, exclude_from_total: exclude, label_id: labelId || null, created_by: user.id,
@@ -318,10 +327,23 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
             {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
-        <div className="field">
-          <label>Banco / entidad (opcional)</label>
-          <input className="form-input" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej: Banco Itaú" />
-        </div>
+        <BankPicker value={bankId} onChange={(v) => { setBankId(v); const b = bankById(v); if (b && !name.trim()) setName(b.short) }} label="Banco o billetera" />
+        {type === 'credit_card' && (
+          <div className="field">
+            <label>Red de la tarjeta</label>
+            <div className="row wrap" style={{ gap: 7 }}>
+              {RED_TARJETA.map((r) => (
+                <button key={r.id} type="button" onClick={() => setNetwork(network === r.id ? '' : r.id)}
+                  className="badge" style={{
+                    cursor: 'pointer', padding: '6px 12px', fontSize: 12.5,
+                    background: network === r.id ? r.color : 'var(--bg-elevated)',
+                    color: network === r.id ? '#fff' : 'var(--text-2)',
+                    borderColor: network === r.id ? r.color : 'var(--border)',
+                  }}>{r.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="grid grid-2" style={{ gap: 12 }}>
           <div className="field">
             <label>Saldo inicial (₲)</label>

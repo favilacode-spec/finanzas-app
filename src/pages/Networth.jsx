@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, TrendingUp, TrendingDown, CreditCard, HandCoins, Home } from 'lucide-react'
+import { Plus, Pencil, Trash2, TrendingUp, TrendingDown, CreditCard, HandCoins, Home, Wallet, Scale } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { money, moneyCompact } from '../lib/format'
 import Modal from '../components/Modal'
 import Tile from '../components/Tile'
 import { useOnChange } from '../lib/events'
+import StatRow from '../components/StatRow'
+import CreditCardArt from '../components/CreditCardArt'
+import BankBadge from '../components/BankBadge'
 
 const TIPOS_BIEN = [
   { value: 'inmueble', label: 'Inmueble (casa, terreno)', icon: 'home', color: '#22b8a6' },
@@ -125,38 +128,37 @@ export default function Networth() {
         <div className="text-2" style={{ fontSize: 12.5, marginTop: 10 }}>{s.detalle}</div>
       </div>
 
-      {/* Activos vs pasivos */}
-      <div className="grid grid-2" style={{ marginBottom: 16 }}>
-        <div className="card">
-          <div className="stat-label">Lo que tenés</div>
-          <div className="stat-value" style={{ fontSize: 24, color: '#34d399' }}>{money(pat?.activos)}</div>
-          {partes.length > 0 && (
-            <>
-              <div style={{ display: 'flex', height: 8, borderRadius: 999, overflow: 'hidden', marginTop: 12, gap: 2 }}>
-                {partes.map((p) => (
-                  <span key={p.label} style={{ width: (p.v / totalPartes * 100) + '%', background: p.color }} />
-                ))}
-              </div>
-              <div className="row wrap" style={{ gap: 10, marginTop: 8 }}>
-                {partes.map((p) => (
-                  <span key={p.label} className="text-muted" style={{ fontSize: 11.5 }}>
-                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: p.color, marginRight: 4 }} />
-                    {p.label} {moneyCompact(p.v)}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <div className="card">
-          <div className="stat-label">Lo que debés</div>
-          <div className="stat-value" style={{ fontSize: 24, color: '#ef3e48' }}>{money(pat?.pasivos)}</div>
-          <div className="text-muted" style={{ fontSize: 12, marginTop: 12, lineHeight: 1.9 }}>
-            Deudas y préstamos <b style={{ float: 'right' }}>{money(pat?.pasivo_deudas)}</b><br />
-            Tarjetas y saldos en rojo <b style={{ float: 'right' }}>{money(pat?.pasivo_tarjetas)}</b>
+      <StatRow items={[
+        { label: 'Lo que tenés', value: pat?.activos, color: '#34d399', icon: Wallet, valueColor: '#34d399',
+          hint: `${partes.length} tipo${partes.length === 1 ? '' : 's'} de activo` },
+        { label: 'Lo que debés', value: pat?.pasivos, color: '#ef3e48', icon: Scale, valueColor: '#ef3e48',
+          hint: 'Deudas + tarjetas' },
+        { label: 'Te deben', value: totalCobrar, color: '#f0a500', icon: HandCoins,
+          hint: `${recv.length} pendiente${recv.length === 1 ? '' : 's'}` },
+        { label: 'Cupo disponible', value: cupoTotal - cupoUsado, color: '#7c5cff', icon: CreditCard,
+          hint: cupoTotal > 0 ? `de ${money(cupoTotal)}` : 'Sin tarjetas' },
+      ]} />
+
+      {/* Composición de activos */}
+      {partes.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title">De qué está hecho lo que tenés</div>
+          <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', gap: 2 }}>
+            {partes.map((p) => (
+              <span key={p.label} style={{ width: (p.v / totalPartes * 100) + '%', background: p.color }} />
+            ))}
+          </div>
+          <div className="row wrap" style={{ gap: 14, marginTop: 10 }}>
+            {partes.map((p) => (
+              <span key={p.label} className="text-2" style={{ fontSize: 12 }}>
+                <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, background: p.color, marginRight: 6 }} />
+                {p.label} <b>{money(p.v)}</b>
+                <span className="text-muted"> · {(p.v / totalPartes * 100).toFixed(0)}%</span>
+              </span>
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Evolución */}
       {hist.length > 1 && (
@@ -171,52 +173,38 @@ export default function Networth() {
       )}
 
       {/* Tarjetas de crédito */}
-      <div className="card card-pad-0" style={{ marginBottom: 16 }}>
-        <div style={{ padding: '14px 18px' }} className="row between wrap">
-          <div className="card-title" style={{ margin: 0 }}>
-            <CreditCard size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Líneas de crédito
-          </div>
-          {cupoTotal > 0 && (
-            <span className="text-2" style={{ fontSize: 13 }}>
-              Disponible <b style={{ color: '#34d399' }}>{money(cupoTotal - cupoUsado)}</b> de {money(cupoTotal)}
-            </span>
-          )}
-        </div>
-        {cards.length === 0 ? (
-          <div className="empty-state" style={{ padding: 28, fontSize: 13 }}>
-            No tenés tarjetas cargadas. Creá una cuenta de tipo <b>Tarjeta de crédito</b> y ponele el límite.
-          </div>
-        ) : cards.map((c) => {
-          const lim = Number(c.credit_limit || 0)
-          const usoPct = lim > 0 ? Math.min(100, (c.usado / lim) * 100) : 0
-          const col = usoPct > 80 ? '#ef3e48' : usoPct > 50 ? '#f0a500' : '#34d399'
-          return (
-            <div key={c.id} style={{ padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
-              <div className="row between" style={{ gap: 10 }}>
-                <span className="row" style={{ gap: 10, minWidth: 0 }}>
-                  <Tile icon={c.icon || 'credit-card'} color={c.color || '#ef3e48'} size="sm" />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600 }}>{c.name}</div>
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>
-                      {lim > 0 ? `Límite ${money(lim)}` : 'Sin límite cargado'}
-                      {c.due_day ? ` · vence el ${c.due_day}` : ''}
-                    </div>
-                  </div>
-                </span>
-                <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <div style={{ fontWeight: 700 }}>{money(c.usado)}</div>
-                  <div className="text-muted" style={{ fontSize: 11 }}>usado</div>
-                </div>
-              </div>
-              {lim > 0 && (
-                <div className="progress" style={{ marginTop: 8 }}>
-                  <span style={{ width: usoPct + '%', background: col }} />
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <div className="section-head">
+        <CreditCard size={16} />
+        <h2>Mis tarjetas</h2>
+        <span className="line" />
+        {cupoTotal > 0 && (
+          <span className="text-2" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
+            Disponible <b style={{ color: '#34d399' }}>{money(cupoTotal - cupoUsado)}</b>
+          </span>
+        )}
       </div>
+      {cards.length === 0 ? (
+        <div className="card empty-state" style={{ padding: 28, fontSize: 13, marginBottom: 16 }}>
+          Creá una cuenta de tipo <b>Tarjeta de crédito</b> y ponele el límite para verla acá.
+        </div>
+      ) : (
+        <div className="card-grid" style={{ marginBottom: 16 }}>
+          {cards.map((c) => (
+            <CreditCardArt
+              key={c.id}
+              name={c.name}
+              bankId={c.bank_id}
+              network={c.card_network}
+              color={c.color}
+              limit={c.credit_limit}
+              used={c.usado}
+              dueDay={c.due_day}
+              closeDay={c.statement_day}
+              currency={c.currency}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Bienes */}
       <div className="card card-pad-0" style={{ marginBottom: 16 }}>

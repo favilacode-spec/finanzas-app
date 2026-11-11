@@ -173,7 +173,7 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
               <Sparkles size={16} style={{ position: 'absolute', left: 12, top: 14, color: 'var(--accent)' }} />
               <input className="form-input" style={{ paddingLeft: 36, paddingRight: 70 }} value={quick} onChange={(e) => setQuick(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyQuick() } }}
-                placeholder='Escribí: "café 15 mil ueno"' />
+                placeholder='Escribí: "café 15 mil itaú"' />
               {quick && <button type="button" className="btn btn-soft btn-sm" style={{ position: 'absolute', right: 6, top: 6 }} onClick={applyQuick}>Listo</button>}
             </div>
           </div>

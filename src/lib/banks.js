@@ -18,7 +18,6 @@ export const BANKS = [
   { id: 'interfisa',   name: 'Interfisa Banco',       short: 'Interfisa',  mono: 'IF', color: '#0B4EA2', kind: 'banco' },
   { id: 'zeta',        name: 'Zeta Banco',            short: 'Zeta',       mono: 'ZB', color: '#7C3AED', kind: 'banco' },
   { id: 'nacion_arg',  name: 'Banco de la Nación Argentina', short: 'BNA', mono: 'NA', color: '#43B0E6', kind: 'banco' },
-  { id: 'ueno',        name: 'ueno bank',             short: 'ueno',       mono: 'UE', color: '#8DC63F', kind: 'banco' },
   { id: 'solar',       name: 'Solar Ahorro y Finanzas', short: 'Solar',    mono: 'SO', color: '#F7B500', kind: 'financiera' },
   { id: 'fic',         name: 'FIC S.A.',              short: 'FIC',        mono: 'FI', color: '#1F6FEB', kind: 'financiera' },
   { id: 'paraguayo_jap', name: 'Financiera Paraguayo Japonesa', short: 'FPJ', mono: 'PJ', color: '#C8102E', kind: 'financiera' },

@@ -6,7 +6,7 @@ import { activarPush, desactivarPush, pushActivo } from '../lib/push'
 import SettingsExtra from '../components/SettingsExtra'
 
 const DEFAULT_RULES = [
-  { label: 'Principal', percent: 65, match: ['ueno', 'principal'] },
+  { label: 'Principal', percent: 65, match: ['principal'] },
   { label: 'IVA', percent: 10, match: ['itau', 'itaú'] },
   { label: 'Diezmo', percent: 10, match: ['eko'] },
   { label: 'Ahorro pequeño', percent: 5, match: ['bnf'] },

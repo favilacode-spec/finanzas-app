@@ -245,7 +245,7 @@ export default function Dashboard() {
           <button className="link" onClick={() => setScForm(true)}><Plus size={15} /> Nuevo</button>
         </div>
         {shortcuts.length === 0 ? (
-          <div className="text-muted" style={{ fontSize: 13.5 }}>Creá botones para lo que cargás seguido (café con Ueno, nafta con la tarjeta…). Solo ponés el monto.</div>
+          <div className="text-muted" style={{ fontSize: 13.5 }}>Creá botones para lo que cargás seguido (café con la tarjeta, nafta…). Solo ponés el monto.</div>
         ) : (
           <div className="row wrap" style={{ gap: 8 }}>
             {shortcuts.map((s, i) => (

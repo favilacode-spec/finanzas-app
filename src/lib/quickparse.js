@@ -1,5 +1,5 @@
 // Carga rápida en lenguaje natural:
-//   "café 15 mil ueno", "sueldo 3.500.000 itau", "uber 23500 ayer", "pasé 200 mil de ueno a efectivo"
+//   "café 15 mil itau", "sueldo 3.500.000 itau", "uber 23500 ayer", "pasé 200 mil de itau a efectivo"
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 

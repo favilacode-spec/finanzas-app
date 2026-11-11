@@ -119,7 +119,7 @@ export default function SettingsExtra({ flash }) {
           <li>Nombralo “Nuevo gasto” y guardalo.</li>
           <li><strong>Ajustes</strong> del iPhone → Accesibilidad → Tocar → <strong>Tocar atrás</strong> → Doble toque → elegí el atajo “Nuevo gasto”.</li>
         </ol>
-        <p className="text-muted" style={{ fontSize: 12.5 }}>Variantes: <code>?nuevo=ingreso</code>, <code>?nuevo=gasto&amp;monto=15000&amp;texto=Café&amp;cuenta=Ueno</code>. Si agregás la app a la pantalla de inicio, abre como app.</p>
+        <p className="text-muted" style={{ fontSize: 12.5 }}>Variantes: <code>?nuevo=ingreso</code>, <code>?nuevo=gasto&amp;monto=15000&amp;texto=Café&amp;cuenta=Itau</code>. Si agregás la app a la pantalla de inicio, abre como app.</p>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>

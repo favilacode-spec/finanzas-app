@@ -319,7 +319,7 @@ function AccountForm({ account, household, user, labels: initialLabels = [], onC
       <form onSubmit={save}>
         <div className="field">
           <label>Nombre</label>
-          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Ueno, Itaú, Efectivo" autoFocus />
+          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Itaú, Basa, Efectivo" autoFocus />
         </div>
         <div className="field">
           <label>Tipo</label>

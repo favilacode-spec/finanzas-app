@@ -384,28 +384,86 @@ function DebtForm({ debt, household, onClose, onSaved }) {
 }
 
 function PaymentForm({ debt, household, user, onClose, onSaved }) {
-  const [amount, setAmount] = useState(debt.min_payment ? String(debt.min_payment) : '')
+  const cuota = Number(debt.min_payment) || 0
+  const [amount, setAmount] = useState(cuota ? String(cuota) : '')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [cuotasManual, setCuotasManual] = useState(null)  // null = calcular solo
   const [busy, setBusy] = useState(false)
+
+  const amt = parseInt(String(amount).replace(/[^0-9]/g, ''), 10) || 0
+  // Cuántas cuotas cubre este pago
+  const cuotasAuto = cuota > 0 ? Math.round(amt / cuota) : 0
+  const cuotasCubre = cuotasManual != null ? cuotasManual : cuotasAuto
+  const llevaCuotas = debt.installments_total != null
 
   const save = async (e) => {
     e.preventDefault()
-    const amt = parseInt(String(amount).replace(/[^0-9]/g, ''), 10) || 0
     if (amt <= 0) return
     setBusy(true)
     await supabase.from('debt_payments').insert({ debt_id: debt.id, household_id: household.id, amount: amt, paid_on: date, created_by: user.id })
     const newBal = Math.max(0, Number(debt.current_balance) - amt)
-    await supabase.from('debts').update({ current_balance: newBal, paid_off: newBal <= 0 }).eq('id', debt.id)
+    const upd = { current_balance: newBal, paid_off: newBal <= 0 }
+    // Avanzar el contador de cuotas junto con el saldo
+    if (llevaCuotas && cuotasCubre > 0) {
+      upd.installments_paid = Math.min(debt.installments_total, (debt.installments_paid || 0) + cuotasCubre)
+    }
+    await supabase.from('debts').update(upd).eq('id', debt.id)
     setBusy(false); onSaved(); onClose()
   }
 
   return (
     <Modal title={`Pago — ${debt.name}`} onClose={onClose}>
       <form onSubmit={save}>
-        <p className="text-2" style={{ fontSize: 13, marginBottom: 12 }}>Saldo actual: <b>{money(debt.current_balance)}</b></p>
-        <div className="field"><label>Monto del pago (₲)</label><input className="form-input" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus style={{ fontSize: 20, fontWeight: 700 }} /></div>
+        <div className="row between" style={{ fontSize: 13, marginBottom: 12 }}>
+          <span className="text-2">Saldo actual: <b style={{ color: 'var(--text)' }}>{money(debt.current_balance)}</b></span>
+          {cuota > 0 && <span className="text-2">Cuota: <b style={{ color: 'var(--text)' }}>{money(cuota)}</b></span>}
+        </div>
+
+        {cuota > 0 && (
+          <div className="row wrap" style={{ gap: 7, marginBottom: 12 }}>
+            {[1, 2, 3].map((n) => (
+              <button key={n} type="button"
+                onClick={() => { setAmount(String(cuota * n)); setCuotasManual(null) }}
+                className="badge" style={{
+                  cursor: 'pointer', padding: '7px 12px', fontSize: 12.5,
+                  background: amt === cuota * n ? '#ededf2' : 'var(--bg-elevated)',
+                  color: amt === cuota * n ? '#0c0c0f' : 'var(--text-2)',
+                  borderColor: amt === cuota * n ? '#ededf2' : 'var(--border)',
+                }}>
+                {n} {n === 1 ? 'cuota' : 'cuotas'} · {money(cuota * n)}
+              </button>
+            ))}
+            <button type="button"
+              onClick={() => { setAmount(String(debt.current_balance)); setCuotasManual(null) }}
+              className="badge" style={{ cursor: 'pointer', padding: '7px 12px', fontSize: 12.5 }}>
+              Saldar todo
+            </button>
+          </div>
+        )}
+
+        <div className="field">
+          <label>Monto del pago (₲)</label>
+          <input className="form-input" inputMode="numeric" value={amount}
+            onChange={(e) => { setAmount(e.target.value); setCuotasManual(null) }}
+            placeholder="0" autoFocus style={{ fontSize: 20, fontWeight: 700 }} />
+        </div>
+
+        {llevaCuotas && (
+          <div className="field">
+            <label>¿Cuántas cuotas cubre?</label>
+            <div className="row" style={{ gap: 8 }}>
+              <input className="form-input" inputMode="numeric" style={{ width: 90 }}
+                value={cuotasCubre}
+                onChange={(e) => setCuotasManual(parseInt(e.target.value, 10) || 0)} />
+              <span className="text-muted" style={{ fontSize: 12.5, alignSelf: 'center' }}>
+                Vas a quedar en la cuota {Math.min(debt.installments_total, (debt.installments_paid || 0) + cuotasCubre)} de {debt.installments_total}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="field"><label>Fecha</label><input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Registrar pago'}</button>
+        <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : `Registrar pago de ${money(amt)}`}</button>
       </form>
     </Modal>
   )

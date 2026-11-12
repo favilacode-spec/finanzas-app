@@ -9,7 +9,7 @@ import { money } from '../lib/format'
 import CreditCardArt from '../components/CreditCardArt'
 import StatRow from '../components/StatRow'
 import Modal from '../components/Modal'
-import { useOnChange } from '../lib/events'
+import { useOnChange, notifyChange } from '../lib/events'
 
 export default function Cards() {
   const { household } = useAuth()
@@ -20,11 +20,13 @@ export default function Cards() {
   const [loading, setLoading] = useState(true)
   const [sel, setSel] = useState(null)      // tarjeta abierta
   const [verPromo, setVerPromo] = useState(null)
+  const [pagar, setPagar] = useState(null)
+  const [cuentasPago, setCuentasPago] = useState([])
 
   const load = async () => {
     const mesIni = new Date(); mesIni.setDate(1)
     const desde = mesIni.toISOString().slice(0, 10)
-    const [acc, bal, cu, pr, tx] = await Promise.all([
+    const [acc, bal, cu, pr, tx, otras] = await Promise.all([
       supabase.from('accounts').select('*').eq('archived', false).eq('type', 'credit_card').order('sort'),
       supabase.from('account_balances').select('*'),
       supabase.from('installment_plans').select('*').eq('closed', false).order('first_date'),
@@ -33,6 +35,7 @@ export default function Cards() {
         .order('discount_pct', { ascending: false, nullsFirst: false })
         .order('cap_amount', { ascending: false, nullsFirst: false }),
       supabase.from('transactions').select('*').gte('occurred_on', desde).eq('type', 'expense'),
+      supabase.from('accounts').select('id,name,type').eq('archived', false).neq('type', 'credit_card').order('sort'),
     ])
     const balances = bal.data || []
     const lista = (acc.data || []).map((c) => ({
@@ -43,6 +46,7 @@ export default function Cards() {
     setPlanes(cu.data || [])
     setPromos(pr.data || [])
     setGastos(tx.data || [])
+    setCuentasPago(otras.data || [])
     if (!sel && lista.length) setSel(lista[0].id)
     setLoading(false)
   }
@@ -128,10 +132,17 @@ export default function Cards() {
           enCuotas={futuro} cuotasActivas={misPlanes.length}
         />
         <div>
+          <button className="btn btn-primary btn-block" style={{ marginBottom: 12 }}
+            onClick={() => setPagar({ card, esteMes, planes: misPlanes })}>
+            <CheckCircle2 size={17} /> Pagar tarjeta
+          </button>
           <StatRow items={[
-            { label: 'A pagar este mes', value: esteMes, color: '#ef3e48', valueColor: '#ef3e48', icon: Calendar },
-            { label: 'En cuotas', value: futuro, color: '#7c5cff', icon: Receipt,
-              hint: misPlanes.length ? `${misPlanes.length} compra${misPlanes.length === 1 ? '' : 's'}` : 'Sin cuotas' },
+            { label: 'A pagar este mes', value: esteMes, color: '#ef3e48', valueColor: '#ef3e48', icon: Calendar,
+              hint: cuotaMes ? `incluye ${money(cuotaMes)} de cuotas de este mes` : 'Sin cuotas este mes' },
+            { label: 'En cuotas, meses siguientes', value: futuro, color: '#7c5cff', icon: Receipt,
+              hint: misPlanes.length
+                ? `saldo en cuotas ${money(futuro + cuotaMes)} · ${misPlanes.length} compra${misPlanes.length === 1 ? '' : 's'}`
+                : 'Sin cuotas' },
             { label: 'Cupo disponible', value: Math.max(0, lim - card.usado), color: '#34d399',
               hint: lim ? `de ${money(lim)}` : 'Sin límite' },
             { label: 'Reintegros del mes', value: totalReintegro, color: '#f0a500', valueColor: '#f0a500', icon: Gift,
@@ -266,6 +277,12 @@ export default function Cards() {
       )}
 
       {verPromo && <DetallePromo promo={verPromo} onClose={() => setVerPromo(null)} />}
+      {pagar && (
+        <PagoTarjeta
+          {...pagar} cuentas={cuentasPago} household={household}
+          onClose={() => setPagar(null)} onSaved={load}
+        />
+      )}
     </div>
   )
 }
@@ -310,4 +327,131 @@ function DetallePromo({ promo, onClose }) {
 
 function norm(s) {
   return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '')
+}
+
+/* Pagar la tarjeta: todo el saldo, solo lo del mes, o el monto que quieras */
+function PagoTarjeta({ card, esteMes, planes, cuentas, household, onClose, onSaved }) {
+  const total = card.usado
+  const [modo, setModo] = useState(esteMes > 0 && esteMes < total ? 'mes' : 'total')
+  const [monto, setMonto] = useState(String(esteMes > 0 && esteMes < total ? esteMes : total))
+  const [cuenta, setCuenta] = useState(cuentas[0]?.id || '')
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
+  const [avanzar, setAvanzar] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const elegir = (m) => {
+    setModo(m)
+    if (m === 'total') setMonto(String(total))
+    if (m === 'mes') setMonto(String(esteMes))
+    if (m === 'otro') setMonto('')
+  }
+
+  const amt = parseInt(String(monto).replace(/[^0-9]/g, ''), 10) || 0
+
+  const save = async (e) => {
+    e.preventDefault()
+    setErr('')
+    if (amt <= 0) return setErr('Poné un monto')
+    if (!cuenta) return setErr('Elegí de qué cuenta sale la plata')
+    setBusy(true)
+    // El pago es una transferencia: sale de la cuenta y entra a la tarjeta (baja la deuda)
+    const { error } = await supabase.from('transactions').insert({
+      household_id: household.id,
+      account_id: cuenta,
+      transfer_account_id: card.id,
+      type: 'transfer',
+      amount: amt, currency: 'PYG',
+      occurred_on: fecha,
+      payee: `Pago ${card.name}`,
+      note: modo === 'total' ? 'Pago total' : modo === 'mes' ? 'Pago del mes' : 'Pago parcial',
+    })
+    if (error) { setBusy(false); return setErr(error.message) }
+
+    // Si pagaste al menos la cuota del mes, avanzamos una cuota en cada plan
+    const cuotaMes = planes.reduce((t, p) => t + Math.round(Number(p.total_amount) / (p.months || 1)), 0)
+    if (avanzar && planes.length && amt >= cuotaMes) {
+      for (const p of planes) {
+        const nuevas = Math.min(p.months, (p.paid_months || 0) + 1)
+        await supabase.from('installment_plans')
+          .update({ paid_months: nuevas, closed: nuevas >= p.months })
+          .eq('id', p.id)
+      }
+    }
+    setBusy(false)
+    notifyChange()
+    onSaved(); onClose()
+  }
+
+  const cuotaMes = planes.reduce((t, p) => t + Math.round(Number(p.total_amount) / (p.months || 1)), 0)
+
+  return (
+    <Modal title={`Pagar ${card.name}`} onClose={onClose}>
+      <form onSubmit={save}>
+        <div className="row between" style={{ marginBottom: 14, fontSize: 13 }}>
+          <span className="text-2">Deuda total <b style={{ color: 'var(--text)' }}>{money(total)}</b></span>
+          {esteMes > 0 && esteMes < total && (
+            <span className="text-2">Vence este mes <b style={{ color: '#ef3e48' }}>{money(esteMes)}</b></span>
+          )}
+        </div>
+
+        <div className="field">
+          <label>¿Cuánto vas a pagar?</label>
+          <div className="row wrap" style={{ gap: 7, marginBottom: 10 }}>
+            {[
+              { k: 'total', t: 'Todo', v: total },
+              ...(esteMes > 0 && esteMes < total ? [{ k: 'mes', t: 'Solo este mes', v: esteMes }] : []),
+              { k: 'otro', t: 'Otro monto', v: null },
+            ].map((o) => (
+              <button key={o.k} type="button" onClick={() => elegir(o.k)}
+                className="badge" style={{
+                  cursor: 'pointer', padding: '8px 13px', fontSize: 13,
+                  background: modo === o.k ? '#ededf2' : 'var(--bg-elevated)',
+                  color: modo === o.k ? '#0c0c0f' : 'var(--text-2)',
+                  borderColor: modo === o.k ? '#ededf2' : 'var(--border)',
+                }}>
+                {o.t}{o.v != null ? ` · ${money(o.v)}` : ''}
+              </button>
+            ))}
+          </div>
+          <input className="form-input" inputMode="numeric" value={monto}
+            onChange={(e) => { setMonto(e.target.value); setModo('otro') }}
+            placeholder="0" autoFocus={modo === 'otro'}
+            style={{ fontSize: 20, fontWeight: 700 }} />
+          {amt > 0 && amt < total && (
+            <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+              Te queda debiendo {money(total - amt)}
+            </div>
+          )}
+        </div>
+
+        <div className="field">
+          <label>¿De qué cuenta sale?</label>
+          <select className="form-select" value={cuenta} onChange={(e) => setCuenta(e.target.value)}>
+            <option value="">Elegir…</option>
+            {cuentas.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+
+        <div className="field">
+          <label>Fecha</label>
+          <input className="form-input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        </div>
+
+        {planes.length > 0 && amt >= cuotaMes && (
+          <label className="row" style={{ gap: 9, marginBottom: 14, cursor: 'pointer' }}>
+            <input type="checkbox" checked={avanzar} onChange={(e) => setAvanzar(e.target.checked)} style={{ width: 18, height: 18 }} />
+            <span style={{ fontSize: 13 }}>
+              Avanzar una cuota en mis {planes.length} compra{planes.length === 1 ? '' : 's'} en cuotas
+            </span>
+          </label>
+        )}
+
+        {err && <div className="text-2" style={{ color: '#ef3e48', fontSize: 13, marginBottom: 10 }}>{err}</div>}
+        <button className="btn btn-primary btn-block" disabled={busy}>
+          {busy ? 'Registrando…' : `Pagar ${money(amt)}`}
+        </button>
+      </form>
+    </Modal>
+  )
 }

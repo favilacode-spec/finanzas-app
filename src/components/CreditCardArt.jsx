@@ -71,7 +71,7 @@ export default function CreditCardArt({
         </div>
         {futuro > 0 && (
           <div style={{ fontSize: 11.5, opacity: .9, marginTop: 3 }}>
-            + {money(futuro)} en cuotas{cuotasActivas ? ` · ${cuotasActivas} compra${cuotasActivas === 1 ? '' : 's'}` : ''}
+            + {money(futuro)} en cuotas para los meses siguientes{cuotasActivas ? ` · ${cuotasActivas} compra${cuotasActivas === 1 ? '' : 's'}` : ''}
           </div>
         )}
 

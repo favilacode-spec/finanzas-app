@@ -13,6 +13,7 @@ import CalendarPage from './pages/Calendar'
 import Budgets from './pages/Budgets'
 import Debts from './pages/Debts'
 import Networth from './pages/Networth'
+import Cards from './pages/Cards'
 import Trip from './pages/Trip'
 import Reports from './pages/Reports'
 import Inbox from './pages/Inbox'
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/presupuestos" element={<Budgets />} />
         <Route path="/deudas" element={<Debts />} />
         <Route path="/patrimonio" element={<Networth />} />
+        <Route path="/tarjetas" element={<Cards />} />
         <Route path="/viaje" element={<Trip />} />
         <Route path="/reportes" element={<Reports />} />
         <Route path="/bandeja" element={<Inbox />} />

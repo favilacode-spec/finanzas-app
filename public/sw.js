@@ -1,4 +1,4 @@
-const CACHE = 'mbcr-v120923';
+const CACHE = 'mbcr-v120950';
 
 self.addEventListener('install', () => self.skipWaiting());
 

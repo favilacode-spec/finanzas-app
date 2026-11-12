@@ -20,6 +20,7 @@ export const NAV = [
   { to: '/metas', label: 'Metas', icon: Target },
   { to: '/viaje', label: 'Proyectos', icon: Rocket },
   { to: '/deudas', label: 'Deudas', icon: CreditCard },
+  { to: '/tarjetas', label: 'Tarjetas', icon: CreditCard },
   { to: '/patrimonio', label: 'Patrimonio', icon: Landmark },
   { to: '/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/bandeja', label: 'Bandeja', icon: InboxIcon, badge: true },

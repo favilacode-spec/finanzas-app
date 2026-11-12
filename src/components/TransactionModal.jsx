@@ -5,6 +5,7 @@ import MoneyInput from './MoneyInput'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { todayLocal } from '../lib/dates'
+import { money } from '../lib/format'
 import { quickParse } from '../lib/quickparse'
 import { compressImage, dataUrlToBlob } from '../lib/image'
 import { notifyChange } from '../lib/events'
@@ -48,6 +49,7 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
   const [sobres, setSobres] = useState(buildSobres())
   const [sobreIn, setSobreIn] = useState(init.sobreIn || '')
   const [sobreOut, setSobreOut] = useState('')
+  const [cuotas, setCuotas] = useState(0)   // 0 = pago al contado
 
   useEffect(() => {
     if (!household) return
@@ -141,6 +143,15 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
       let created
       ;({ data: created, error } = await supabase.from('transactions').insert({ ...payload, created_by: user.id }).select('id').single())
       if (!error && created) {
+        // Compra en cuotas con tarjeta: queda registrado el plan
+        if (esTarjeta && cuotas > 1) {
+          const { data: plan } = await supabase.from('installment_plans').insert({
+            household_id: household.id, account_id: accountId, category_id: categoryId || null,
+            merchant: payee || 'Compra', total_amount: amt, months: cuotas,
+            paid_months: 0, first_date: date,
+          }).select('id').single()
+          if (plan) await supabase.from('transactions').update({ installment_plan_id: plan.id }).eq('id', created.id)
+        }
         const base = { householdId: household.id, userId: user.id, date, transactionId: created.id, note: payee || null }
         const sin = sobresIn.find((x) => x.key === sobreIn)
         const sout = sobresOut.find((x) => x.key === sobreOut)
@@ -159,6 +170,8 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
   // Sobres (metas y proyectos) de la cuenta que recibe o de la que sale la plata
   const cuentaEntra = type === 'transfer' ? toAccount : type === 'income' ? accountId : ''
   const cuentaSale = type === 'income' ? '' : accountId
+  // Compras en cuotas: solo aplica a gastos pagados con tarjeta de credito
+  const esTarjeta = type === 'expense' && accounts.find((a) => a.id === accountId)?.type === 'credit_card'
   const sobresIn = edit || !cuentaEntra ? [] : sobres.deCuenta(cuentaEntra)
   const sobresOut = edit || !cuentaSale ? [] : sobres.deCuenta(cuentaSale)
 
@@ -215,6 +228,32 @@ export default function TransactionModal({ onClose, onSaved, edit, prefill, defa
             </div>
           )}
         </div>
+
+        {esTarjeta && !edit && (
+          <div className="field">
+            <label>¿La compraste en cuotas?</label>
+            <div className="row wrap" style={{ gap: 7 }}>
+              {[0, 3, 6, 10, 12, 18, 24].map((n) => (
+                <button key={n} type="button" onClick={() => setCuotas(n)}
+                  className="badge"
+                  style={{
+                    cursor: 'pointer', padding: '7px 13px', fontSize: 13,
+                    background: cuotas === n ? '#ededf2' : 'var(--bg-elevated)',
+                    color: cuotas === n ? '#0c0c0f' : 'var(--text-2)',
+                    borderColor: cuotas === n ? '#ededf2' : 'var(--border)',
+                  }}>
+                  {n === 0 ? 'Al contado' : `${n} cuotas`}
+                </button>
+              ))}
+            </div>
+            {cuotas > 1 && Number(amount) > 0 && (
+              <div className="text-2" style={{ fontSize: 12.5, marginTop: 8 }}>
+                {cuotas} cuotas de <b>{money(Math.round(Number(amount) / cuotas))}</b> por mes.
+                Solo la primera entra en el saldo a pagar de este mes.
+              </div>
+            )}
+          </div>
+        )}
 
         {sobresOut.length > 0 && (
           <div className="field">

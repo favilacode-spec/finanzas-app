@@ -36,23 +36,26 @@ export default function Networth() {
   const [recv, setRecv] = useState([])
   const [cards, setCards] = useState([])
   const [hist, setHist] = useState([])
+  const [planes, setPlanes] = useState([])
   const [loading, setLoading] = useState(true)
   const [formBien, setFormBien] = useState(null)
   const [formCobro, setFormCobro] = useState(null)
 
   const load = async () => {
-    const [p, a, r, acc, bal, h] = await Promise.all([
+    const [p, a, r, acc, bal, h, cu] = await Promise.all([
       supabase.from('patrimonio').select('*').maybeSingle(),
       supabase.from('assets').select('*').eq('archived', false).order('sort').order('created_at'),
       supabase.from('receivables').select('*').eq('status', 'open').order('due_date', { nullsFirst: false }),
       supabase.from('accounts').select('*').eq('archived', false).eq('type', 'credit_card'),
       supabase.from('account_balances').select('*'),
       supabase.from('net_worth_snapshots').select('*').order('taken_on').limit(24),
+      supabase.from('installment_plans').select('*').eq('closed', false).order('first_date'),
     ])
     setPat(p.data || null)
     setAssets(a.data || [])
     setRecv(r.data || [])
     setHist(h.data || [])
+    setPlanes(cu.data || [])
     const balances = bal.data || []
     setCards((acc.data || []).map((c) => ({
       ...c,
@@ -91,6 +94,16 @@ export default function Networth() {
   const pn = Number(pat?.patrimonio_neto || 0)
   const s = salud(pat?.ratio_deuda != null ? Number(pat.ratio_deuda) : null)
   const totalCobrar = recv.reduce((t, r) => t + (Number(r.amount) - Number(r.collected)), 0)
+  // Cuotas pendientes por tarjeta: lo que NO vence este mes
+  const cuotasDe = (accId) => {
+    const ps = planes.filter((p) => p.account_id === accId && p.paid_months < p.months)
+    const mes = ps.reduce((t, p) => t + Math.round(Number(p.total_amount) / (p.months || 1)), 0)
+    const futuro = ps.reduce((t, p) => {
+      const cuota = Math.round(Number(p.total_amount) / (p.months || 1))
+      return t + cuota * Math.max(0, p.months - p.paid_months - 1)
+    }, 0)
+    return { planes: ps, cuotaMes: mes, futuro, cantidad: ps.length }
+  }
   const cupoTotal = cards.reduce((t, c) => t + Number(c.credit_limit || 0), 0)
   const cupoUsado = cards.reduce((t, c) => t + c.usado, 0)
 
@@ -201,8 +214,50 @@ export default function Networth() {
               dueDay={c.due_day}
               closeDay={c.statement_day}
               currency={c.currency}
+              enCuotas={cuotasDe(c.id).futuro}
+              cuotasActivas={cuotasDe(c.id).cantidad}
             />
           ))}
+        </div>
+      )}
+
+      {/* Compras en cuotas */}
+      {planes.length > 0 && (
+        <div className="card card-pad-0" style={{ marginBottom: 16 }}>
+          <div style={{ padding: '14px 18px' }} className="row between wrap">
+            <div className="card-title" style={{ margin: 0 }}>
+              <CreditCard size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Compras en cuotas ({planes.length})
+            </div>
+            <span className="text-2" style={{ fontSize: 13 }}>
+              {money(planes.reduce((t, p) => t + Math.round(Number(p.total_amount) / (p.months || 1)), 0))} por mes
+            </span>
+          </div>
+          {planes.map((p) => {
+            const cuota = Math.round(Number(p.total_amount) / (p.months || 1))
+            const restantes = Math.max(0, p.months - p.paid_months)
+            const pct = p.months ? (p.paid_months / p.months) * 100 : 0
+            return (
+              <div key={p.id} style={{ padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
+                <div className="row between" style={{ gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>{p.merchant}</div>
+                    <div className="text-muted" style={{ fontSize: 11.5 }}>
+                      {money(cuota)} × {p.months} · pagaste {p.paid_months} de {p.months}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 700 }}>{money(cuota * restantes)}</div>
+                    <div className="text-muted" style={{ fontSize: 11 }}>
+                      {restantes} {restantes === 1 ? 'cuota' : 'cuotas'}
+                    </div>
+                  </div>
+                </div>
+                <div className="progress" style={{ marginTop: 8 }}>
+                  <span style={{ width: pct + '%', background: '#7c5cff' }} />
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

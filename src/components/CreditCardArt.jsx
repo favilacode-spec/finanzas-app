@@ -9,6 +9,7 @@ import { oscurecer, aclarar, contraste, hexA } from './BankBadge'
 export default function CreditCardArt({
   name, bankId, network, color, limit = 0, used = 0,
   dueDay, closeDay, currency = 'PYG', onClick, compact = false,
+  enCuotas = 0, cuotasActivas = 0,
 }) {
   const b = bankById(bankId) || guessBank(name)
   const base = color || b?.color || '#2f3540'
@@ -17,6 +18,8 @@ export default function CreditCardArt({
   const lim = Number(limit || 0)
   const usado = Math.max(0, Number(used || 0))
   const disp = Math.max(0, lim - usado)
+  const futuro = Math.max(0, Number(enCuotas || 0))
+  const esteMes = Math.max(0, usado - futuro)
   const pct = lim > 0 ? Math.min(100, (usado / lim) * 100) : 0
   const alerta = pct > 85 ? '#ff6b6b' : pct > 60 ? '#ffd166' : txt
 
@@ -60,10 +63,17 @@ export default function CreditCardArt({
       </div>
 
       <div style={{ position: 'relative' }}>
-        <div style={{ opacity: .8, fontSize: 10.5, letterSpacing: '.08em', fontWeight: 700 }}>SALDO USADO</div>
-        <div style={{ fontSize: compact ? 20 : 25, fontWeight: 800, letterSpacing: '-.02em', marginTop: 1 }}>
-          {money(usado)}
+        <div style={{ opacity: .8, fontSize: 10.5, letterSpacing: '.08em', fontWeight: 700 }}>
+          {futuro > 0 ? 'A PAGAR ESTE MES' : 'SALDO USADO'}
         </div>
+        <div style={{ fontSize: compact ? 20 : 25, fontWeight: 800, letterSpacing: '-.02em', marginTop: 1 }}>
+          {money(futuro > 0 ? esteMes : usado)}
+        </div>
+        {futuro > 0 && (
+          <div style={{ fontSize: 11.5, opacity: .9, marginTop: 3 }}>
+            + {money(futuro)} en cuotas{cuotasActivas ? ` · ${cuotasActivas} compra${cuotasActivas === 1 ? '' : 's'}` : ''}
+          </div>
+        )}
 
         {lim > 0 && (
           <>

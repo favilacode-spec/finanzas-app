@@ -56,9 +56,12 @@ export default function Debts() {
   const [aiBusy, setAiBusy] = useState(false)
   const [tab, setTab] = useState('todas')
   const [allDebts, setAllDebts] = useState([])
+  const [cuotas, setCuotas] = useState([])
 
   const load = async () => {
     setLoading(true)
+    const { data: cal } = await supabase.from('cuotas_deuda').select('*')
+    setCuotas(cal || [])
     const { data } = await supabase.from('debts').select('*').eq('paid_off', false)
     // El orden lo manda 'sort' (manual). Como desempate, saldo más chico primero (snowball).
     const sorted = (data || []).sort((a, b) =>
@@ -295,6 +298,7 @@ export default function Debts() {
                     ? <>⏱️ Con su pago mínimo: ≈ <b>{fmtMonths(payoffMonths(d.current_balance, d.min_payment))}</b></>
                     : <span className="text-muted">Definí el pago mínimo para estimar los meses.</span>}
                 </div>
+                <CalendarioCuotas info={cuotas.find((c) => c.id === d.id)} />
               </div>
             )
           })}
@@ -314,6 +318,9 @@ function DebtForm({ debt, household, onClose, onSaved }) {
   const [balance, setBalance] = useState(debt.current_balance != null && debt.id ? String(debt.current_balance) : (debt.total_amount ? String(debt.total_amount) : ''))
   const [minPay, setMinPay] = useState(debt.min_payment ? String(debt.min_payment) : '')
   const [owner, setOwner] = useState(debt.owner || 'mias')
+  const [cuotasTot, setCuotasTot] = useState(debt.installments_total || '')
+  const [cuotasPag, setCuotasPag] = useState(debt.installments_paid || '')
+  const [primeraCuota, setPrimeraCuota] = useState(debt.first_payment_date || '')
   const [busy, setBusy] = useState(false)
   const num = (v) => parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0
 
@@ -325,6 +332,9 @@ function DebtForm({ debt, household, onClose, onSaved }) {
       household_id: household.id, name: name.trim(),
       total_amount: num(total), current_balance: isNew ? (num(balance) || num(total)) : num(balance),
       interest_rate: 0, min_payment: num(minPay), owner,
+      installments_total: parseInt(cuotasTot, 10) || null,
+      installments_paid: parseInt(cuotasPag, 10) || 0,
+      first_payment_date: primeraCuota || null,
     }
     if (isNew) await supabase.from('debts').insert(payload)
     else await supabase.from('debts').update(payload).eq('id', debt.id)
@@ -340,6 +350,27 @@ function DebtForm({ debt, household, onClose, onSaved }) {
           <div className="field"><label>Saldo pendiente (₲)</label><input className="form-input" inputMode="numeric" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="0" /></div>
         </div>
         <div className="field"><label>Pago mínimo mensual (₲, opcional)</label><input className="form-input" inputMode="numeric" value={minPay} onChange={(e) => setMinPay(e.target.value)} placeholder="0" /></div>
+        <div className="grid grid-2" style={{ gap: 12 }}>
+          <div className="field">
+            <label>¿En cuántas cuotas?</label>
+            <input className="form-input" inputMode="numeric" value={cuotasTot}
+              onChange={(e) => setCuotasTot(e.target.value)} placeholder="Ej: 48" />
+          </div>
+          <div className="field">
+            <label>¿Cuántas pagaste?</label>
+            <input className="form-input" inputMode="numeric" value={cuotasPag}
+              onChange={(e) => setCuotasPag(e.target.value)} placeholder="Ej: 13" />
+          </div>
+        </div>
+        <div className="field">
+          <label>¿Cuándo pagaste la primera cuota?</label>
+          <input className="form-input" type="date" value={primeraCuota}
+            onChange={(e) => setPrimeraCuota(e.target.value)} />
+          <div className="text-muted" style={{ fontSize: 11.5, marginTop: 5 }}>
+            Con esto te digo exactamente qué mes vas pagando y si estás al día.
+          </div>
+        </div>
+
         <div className="field">
           <label>¿De quién es esta deuda?</label>
           <select className="form-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
@@ -377,5 +408,46 @@ function PaymentForm({ debt, household, user, onClose, onSaved }) {
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Guardando…' : 'Registrar pago'}</button>
       </form>
     </Modal>
+  )
+}
+
+/* Calendario de cuotas: en qué mes voy y si estoy al día */
+function CalendarioCuotas({ info }) {
+  if (!info || !info.total_cuotas) return null
+  const mes = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('es', { month: 'short', year: 'numeric' }) : null
+  const atraso = (info.deberia_llevar || 0) - (info.pagadas || 0)
+  const alDia = atraso <= 0
+
+  if (!info.primera) {
+    return (
+      <div className="text-muted" style={{ fontSize: 12, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+        Cuota {info.pagadas} de {info.total_cuotas} · cargá el mes de la primera cuota para ver el calendario.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <div className="row between wrap" style={{ gap: 8 }}>
+        <span className="text-muted" style={{ fontSize: 11.5 }}>
+          Cuota <b style={{ color: 'var(--text)' }}>{info.pagadas}</b> de {info.total_cuotas}
+          {info.ultima_pagada ? <> · última que pagaste: <b style={{ color: 'var(--text)', textTransform: 'capitalize' }}>{mes(info.ultima_pagada)}</b></> : null}
+        </span>
+        <span className="badge" style={{
+          background: alDia ? '#34d39922' : '#ef3e4822',
+          color: alDia ? '#34d399' : '#ef3e48',
+          borderColor: alDia ? '#34d39955' : '#ef3e4855',
+        }}>
+          {alDia ? 'Al día' : `Debés ${atraso} ${atraso === 1 ? 'cuota' : 'cuotas'}`}
+        </span>
+      </div>
+      <div className="text-2" style={{ fontSize: 12, marginTop: 6, textTransform: 'capitalize' }}>
+        {alDia
+          ? <>Próxima: <b>{mes(info.proxima)}</b></>
+          : <>Te falta pagar <b>{mes(info.proxima)}</b></>}
+        <span className="text-muted" style={{ textTransform: 'none' }}> · termina en </span>
+        <b>{mes(info.ultima_cuota)}</b>
+      </div>
+    </div>
   )
 }
